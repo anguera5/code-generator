@@ -1,0 +1,206 @@
+/*
+	Futuristic lightweight theme for the app
+	- Elegant neon-accent colors (violet + cyan)
+	- Subtle glass surfaces, micro-animations, and hover dynamics
+	- No external font deps; uses system UI font stack
+*/
+
+:root {
+	--bg: #0b1220;
+	--bg-2: #0a0f1f;
+	--surface: rgba(255, 255, 255, 0.04);
+	--surface-strong: rgba(255, 255, 255, 0.06);
+	--border: rgba(148, 163, 184, 0.18); /* slate-300/alpha */
+	--text: #e2e8f0; /* slate-200 */
+	--muted: #94a3b8; /* slate-400 */
+
+	--primary: #7c3aed;      /* violet-600 */
+	--primary-600: #6d28d9;  /* violet-700 */
+	--secondary: #22d3ee;    /* cyan-400 */
+	--secondary-600: #0891b2;/* cyan-700 */
+
+	--radius: 12px;
+	--radius-sm: 8px;
+
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(148, 163, 184, 0.15) inset;
+	--shadow-md: 0 12px 24px -16px rgba(124, 58, 237, 0.45), 0 4px 12px -6px rgba(2, 8, 23, 0.6);
+	--focus-ring: 0 0 0 3px rgba(124, 58, 237, 0.35);
+
+		/* Vuetify theme variables (rgb triplets) */
+		--v-theme-background: 15, 17, 21; /* matches #0f1115 */
+		--v-theme-surface: 17, 19, 24;    /* subtle dark surface */
+		--v-theme-on-background: 226, 232, 240;
+		--v-theme-on-surface: 226, 232, 240;
+}
+
+html, body, #app {
+	height: 100%;
+	/* Elegant dark grey background */
+	background: linear-gradient(180deg, #0f1115 0%, #0b0d10 100%);
+	color: var(--text);
+	font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Make Vuetify shells transparent so our background shows through */
+.v-application, .v-application__wrap, .v-main {
+	background-color: transparent !important;
+	background: transparent !important;
+}
+
+/* Soft grid glow overlay */
+body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.12) 1px, transparent 0);
+	background-size: 36px 36px;
+	mask-image: radial-gradient(closest-side, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+		opacity: 0.10; /* Subtle grid */
+}
+
+/* Typography */
+h1 {
+	font-weight: 800;
+	letter-spacing: 0.2px;
+	line-height: 1.1;
+	margin: 0;
+	background: linear-gradient(90deg, #fff 0%, #c7d2fe 40%, #93c5fd 60%, #22d3ee 85%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
+
+h3 {
+	color: #e5e7eb;
+	letter-spacing: 0.2px;
+}
+
+/* Containers & surfaces */
+.v-container { backdrop-filter: saturate(120%) blur(2px); }
+
+.surface, .glass-panel {
+	background: linear-gradient(180deg, var(--surface-strong), var(--surface));
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow-sm);
+	transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.surface:hover, .glass-panel:hover {
+	transform: translateY(-2px);
+	border-color: rgba(124, 58, 237, 0.3);
+	box-shadow: var(--shadow-md);
+}
+
+/* Spacing utilities */
+.p-4 { padding: 16px; }
+.mt-4 { margin-top: 16px; }
+.mb-6 { margin-bottom: 24px; }
+.mr-4 { margin-right: 16px; }
+.text-right { text-align: right; }
+
+/* Buttons: glow + motion */
+.v-btn {
+	letter-spacing: 0.2px;
+	font-weight: 700;
+	border-radius: calc(var(--radius-sm) - 2px);
+	transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.v-btn.bg-primary {
+	background: linear-gradient(135deg, var(--primary), #9d4edd);
+	border: 1px solid rgba(124, 58, 237, 0.45);
+	color: #fff;
+	box-shadow: 0 8px 22px -14px rgba(124, 58, 237, 0.75);
+}
+.v-btn.bg-primary:hover:not(.v-btn--disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 18px 42px -16px rgba(124, 58, 237, 0.75), 0 0 0 1px rgba(124, 58, 237, 0.55) inset;
+}
+
+.v-btn.bg-secondary {
+	background: linear-gradient(135deg, var(--secondary), #60efff);
+	border: 1px solid rgba(34, 211, 238, 0.45);
+	color: #041018;
+	box-shadow: 0 8px 22px -14px rgba(34, 211, 238, 0.65);
+}
+.v-btn.bg-secondary:hover:not(.v-btn--disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 18px 42px -16px rgba(34, 211, 238, 0.65), 0 0 0 1px rgba(34, 211, 238, 0.5) inset;
+}
+
+.v-btn.v-btn--variant-text {
+	color: var(--muted);
+}
+.v-btn.v-btn--variant-text:hover {
+	color: #e2e8f0;
+	text-decoration: underline dotted rgba(148, 163, 184, 0.5);
+	text-underline-offset: 3px;
+}
+
+.v-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Inputs & selects */
+.v-input .v-field {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	box-shadow: var(--shadow-sm);
+	backdrop-filter: blur(2px);
+}
+.v-input .v-field:hover { border-color: rgba(124, 58, 237, 0.35); }
+.v-input .v-field--focused { border-color: rgba(34, 211, 238, 0.55); box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12); }
+.v-input input,
+.v-input textarea { caret-color: var(--primary); }
+.v-field-label, .v-label { color: var(--muted) !important; }
+.v-messages__message { color: var(--muted); }
+
+/* Editor container + Monaco polish */
+.editor { position: relative; }
+.editor > div {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+	border: 1px solid var(--border) !important;
+	border-radius: var(--radius) !important;
+	box-shadow: var(--shadow-sm);
+	transition: box-shadow 0.2s ease, border-color 0.2s ease;
+	overflow: hidden;
+}
+.editor > div:hover { border-color: rgba(124, 58, 237, 0.3); box-shadow: var(--shadow-md); }
+
+.monaco-editor,
+.monaco-editor .margin,
+.monaco-editor .monaco-editor-background { background: transparent !important; }
+.monaco-editor .line-numbers { color: #94a3b8aa !important; }
+.monaco-editor .scrollbar .slider { background: #8796aacc !important; }
+
+/* Divider utility */
+.hr {
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--border), transparent);
+	margin: 16px 0;
+	border: 0;
+}
+
+/* Micro-interactions */
+.hover-raise { transition: transform 0.18s ease, box-shadow 0.18s ease; box-shadow: var(--shadow-sm); }
+.hover-raise:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.animate-in { animation: fade-up 0.36s ease-out both; }
+@keyframes fade-up {
+	from { opacity: 0; transform: translateY(6px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Keep existing small utility from component */
+.gap-2 > * + * { margin-left: 8px; }
+
+/* Responsive spacing between the two main cards */
+@media (min-width: 960px) {
+	.card-spacer-right { margin-right: 16px; }
+	.card-spacer-left { margin-left: 16px; }
+}
+
+/* Force dark theme visuals consistently */
+
