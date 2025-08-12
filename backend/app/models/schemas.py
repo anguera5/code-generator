@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field
 
 class GenerateRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=8000)
+    prompt: str = Field(..., min_length=0, max_length=8000)
     language: str
+    api_key: str
 
 
 class GenerateResponse(BaseModel):

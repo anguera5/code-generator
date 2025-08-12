@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from app.models.schemas import (
     GenerateRequest,
     GenerateResponse,
@@ -18,7 +18,7 @@ def root():
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_code(payload: GenerateRequest):
-    text = llm.generate_code(payload.prompt, payload.language)
+    text = llm.generate_code(payload.prompt, payload.language, payload.api_key)
     return GenerateResponse(code=text, language=payload.language)
 
 
