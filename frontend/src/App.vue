@@ -2,17 +2,32 @@
   <v-app>
     <v-main>
       <v-container class="py-6 animate-in" fluid>
+        <!-- Main UI row with API key and language selector on the same row -->
         <v-row class="mb-4" align="center" justify="space-between">
           <v-col cols="12" md="6">
             <h1>Code Generation</h1>
           </v-col>
-          <v-col cols="12" md="6" class="text-right">
+          <v-col cols="12" md="4" class="text-right">
             <v-select
               v-model="language"
               :items="languages"
               label="Language"
-              class="mr-4"
-              style="max-width: 220px"
+              style="max-width: 200px; min-width: 140px;"
+              hide-details
+              density="comfortable"
+              variant="outlined"
+            />
+          </v-col>
+          <v-col cols="12" md="2" class="text-left">
+            <v-text-field
+              v-model="apiKey"
+              label="API Key"
+              type="password"
+              style="max-width: 200px; min-width: 140px;"
+              autocomplete="off"
+              hide-details
+              density="comfortable"
+              variant="outlined"
             />
           </v-col>
         </v-row>
@@ -29,8 +44,8 @@
             />
             <div class="d-flex gap-2 mb-6">
               <v-btn class="bg-primary" @click="generate" :loading="loading">Generate!</v-btn>
-              <v-btn class="bg-secondary" @click="genDocs" :disabled="!codeText" :loading="loadingDocs">Add Documentation</v-btn>
-              <v-btn class="bg-secondary" @click="genTests" :disabled="!codeText" :loading="loadingTests">Add Unit Tests</v-btn>
+              <v-btn class="bg-primary" @click="genDocs" :disabled="!codeText" :loading="loadingDocs">Add Documentation</v-btn>
+              <v-btn class="bg-primary" @click="genTests" :disabled="!codeText" :loading="loadingTests">Add Unit Tests</v-btn>
             </div>
             </div>
           </v-col>
@@ -80,6 +95,8 @@ const languageMap = {
 type Language = keyof typeof languageMap;
 const languages = Object.keys(languageMap);
 const language = ref<Language>('python');
+const apiKey = ref('')
+
 let outputLanguage = ''
 
 const activeTab = ref<'code' | 'tests'>('code')
@@ -88,9 +105,10 @@ const loading = ref(false)
 const loadingTests = ref(false)
 const loadingDocs = ref(false)
 
-let editor: monaco.editor.IStandaloneCodeEditor | null = null
-let codeModel: monaco.editor.ITextModel | null = null
-let testsModel: monaco.editor.ITextModel | null = null
+import type { editor as MonacoEditorNS } from 'monaco-editor'
+let editor: MonacoEditorNS.IStandaloneCodeEditor | null = null
+let codeModel: MonacoEditorNS.ITextModel | null = null
+let testsModel: MonacoEditorNS.ITextModel | null = null
 const editorEl = ref<HTMLDivElement | null>(null)
 
 onMounted(() => {
@@ -102,7 +120,9 @@ onMounted(() => {
     minimap: { enabled: false },
     wordWrap: 'on',
     automaticLayout: true,
+    readOnly: true,
   })
+  // No need to sync model content if read-only, but keep for future editability
   editor.onDidChangeModelContent(() => {
     const m = editor!.getModel()
     if (m === codeModel) codeText.value = m.getValue()
@@ -131,12 +151,17 @@ watch(activeTab, (tab) => {
 async function generate() {
   loading.value = true
   try {
-    const res = await axios.post('/api/generate', { prompt: prompt.value, language: language.value })
+    const res = await axios.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKey.value})
+    if (res.data.code === "Please introduce code-related prompt") {
+      window.alert("The inputted query was not code related according to our model.");
+      return;
+    }
     codeText.value = res.data.code
     activeTab.value = 'code'
     outputLanguage = language.value
   } catch (e: any) {
-    console.error(e)
+    let errorMsg = e.response.data.detail;
+    window.alert(errorMsg);
   } finally {
     loading.value = false
   }
