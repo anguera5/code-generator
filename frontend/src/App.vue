@@ -1,242 +1,82 @@
 <template>
   <v-app>
+  <v-navigation-drawer v-model="drawer" temporary class="app-drawer">
+      <div class="drawer-header d-flex align-center px-4 py-3">
+        <v-btn class="nav-trigger mr-2" icon variant="text" @click="drawer = false" :aria-label="'Close project drawer'">
+          <v-img src="/src/assets/favicon.png" width="26" height="26" alt="Close drawer" />
+        </v-btn>
+        <v-icon icon="mdi-cube-outline" size="26" class="mr-2 gradient-icon" />
+        <span class="drawer-title">Projects</span>
+      </div>
+      <v-divider class="mb-2 opacity-divider" />
+      <v-list density="compact" nav>
+        <v-list-item
+          v-for="m in modules"
+          :key="m.path"
+          :to="m.path"
+          link
+        >
+          <template #prepend>
+            <v-icon icon="mdi-rocket-launch-outline" size="18" class="list-bullet" />
+          </template>
+          <v-list-item-title class="list-title">{{ m.title }}</v-list-item-title>
+          <v-list-item-subtitle v-if="m.description">
+            {{ m.description }}
+          </v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-app-bar flat color="transparent" class="app-bar">
+      <v-btn class="nav-trigger mr-2" icon variant="text" @click="drawer = !drawer" :aria-label="drawer ? 'Close project drawer' : 'Open project drawer'">
+        <v-img src="/src/assets/favicon.png" width="28" height="28" alt="Projects" class="elevate" />
+      </v-btn>
+      <v-toolbar-title class="clickable-title" @click="$router.push('/')">
+        <span class="brand">GenAI<span class="accent">Portfolio</span></span>
+      </v-toolbar-title>
+      <v-spacer />
+    </v-app-bar>
+
     <v-main>
-      <v-container class="py-6 animate-in" fluid>
-        <!-- Main UI row with API key and language selector on the same row -->
-        <v-row class="mb-4" align="center" justify="space-between">
-          <v-col cols="12" md="6">
-            <h1>Code Generation</h1>
-          </v-col>
-          <v-col cols="12" md="4" class="text-right">
-            <v-select
-              v-model="language"
-              :items="languages"
-              label="Language"
-              style="max-width: 200px; min-width: 140px;"
-              hide-details
-              density="comfortable"
-              variant="outlined"
-            />
-          </v-col>
-          <v-col cols="12" md="2" class="text-left">
-            <v-text-field
-              v-model="apiKey"
-              label="API Key"
-              type="password"
-              style="max-width: 200px; min-width: 140px;"
-              autocomplete="off"
-              hide-details
-              density="comfortable"
-              variant="outlined"
-            />
-          </v-col>
-        </v-row>
-
-        <v-row>
-          <v-col cols="12" md="6">
-            <div class="glass-panel p-4 hover-raise" style="height: 100%">
-            <v-textarea
-              v-model="prompt"
-              label="Describe what to generate"
-              auto-grow
-              rows="8"
-              clearable
-            />
-            <div class="d-flex mb-6 panel-actions">
-              <v-btn class="bg-primary" @click="generate" :loading="loading">Generate!</v-btn>
-              <v-btn class="bg-primary" @click="genDocs" :disabled="!codeText" :loading="loadingDocs">Add Documentation</v-btn>
-              <v-btn class="bg-primary" @click="genTests" :disabled="!codeText" :loading="loadingTests">Add Unit Tests</v-btn>
-            </div>
-            </div>
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <div class="glass-panel p-4 hover-raise" style="height: 100%">
-            <div class="mb-2 d-flex align-center justify-space-between">
-              <v-tabs v-model="activeTab" density="comfortable" color="primary" bg-color="transparent">
-                <v-tab value="code">Code</v-tab>
-                <v-tab value="tests">Tests</v-tab>
-              </v-tabs>
-              <div>
-                <v-btn size="small" variant="text" @click="copyCurrent" :disabled="!currentText">Copy</v-btn>
-                <v-btn size="small" variant="text" @click="downloadCurrent" :disabled="!currentText">Download</v-btn>
-              </div>
-            </div>
-            <div class="editor">
-        <div ref="editorEl" style="height: 520px;"></div>
-            </div>
-            </div>
-          </v-col>
-        </v-row>
-      </v-container>
+      <router-view />
     </v-main>
   </v-app>
 </template>
 
 <script lang="ts" setup>
-import './monaco-setup'
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import * as monaco from 'monaco-editor'
-import axios from 'axios'
-
-const prompt = ref('')
-const codeText = ref('')
-const testsText = ref('')
-
-const languageMap = {
-  python: 'py',
-  java: 'java',
-  javascript: 'js',
-  R: 'r',
-  matlab: 'm',
-  node: 'js'
-} as const;
-
-type Language = keyof typeof languageMap;
-const languages = Object.keys(languageMap);
-const language = ref<Language>('python');
-const apiKey = ref('')
-
-let outputLanguage = ''
-
-const activeTab = ref<'code' | 'tests'>('code')
-
-const loading = ref(false)
-const loadingTests = ref(false)
-const loadingDocs = ref(false)
-
-import type { editor as MonacoEditorNS } from 'monaco-editor'
-let editor: MonacoEditorNS.IStandaloneCodeEditor | null = null
-let codeModel: MonacoEditorNS.ITextModel | null = null
-let testsModel: MonacoEditorNS.ITextModel | null = null
-const editorEl = ref<HTMLDivElement | null>(null)
-
-onMounted(() => {
-  codeModel = monaco.editor.createModel(codeText.value, language.value)
-  testsModel = monaco.editor.createModel(testsText.value, language.value)
-  editor = monaco.editor.create(editorEl.value!, {
-    model: codeModel,
-    theme: 'vs-dark',
-    minimap: { enabled: false },
-    wordWrap: 'on',
-    automaticLayout: true,
-    readOnly: true,
-  })
-  // No need to sync model content if read-only, but keep for future editability
-  editor.onDidChangeModelContent(() => {
-    const m = editor!.getModel()
-    if (m === codeModel) codeText.value = m.getValue()
-    else if (m === testsModel) testsText.value = m.getValue()
-  })
-})
-
-watch(codeText, (val) => {
-  if (codeModel && val !== codeModel.getValue()) codeModel.setValue(val)
-})
-watch(testsText, (val) => {
-  if (testsModel && val !== testsModel.getValue()) testsModel.setValue(val)
-})
-
-watch(language, (lang) => {
-  if (codeModel) monaco.editor.setModelLanguage(codeModel, lang)
-  if (testsModel) monaco.editor.setModelLanguage(testsModel, lang)
-})
-
-watch(activeTab, (tab) => {
-  if (!editor) return
-  if (tab === 'code' && codeModel) editor.setModel(codeModel)
-  if (tab === 'tests' && testsModel) editor.setModel(testsModel)
-})
-
-async function generate() {
-  loading.value = true
-  try {
-    const res = await axios.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKey.value})
-    if (res.data.code === "Please introduce code-related prompt") {
-      window.alert("The inputted query was not code related according to our model.");
-      return;
-    }
-    codeText.value = res.data.code
-    activeTab.value = 'code'
-    outputLanguage = language.value
-  } catch (e: any) {
-    let errorMsg = e.response.data.detail;
-    window.alert(errorMsg);
-  } finally {
-    loading.value = false
-  }
-}
-
-async function genTests() {
-  loadingTests.value = true
-  try {
-    const res = await axios.post('/api/tests', { code: codeText.value})
-    testsText.value = res.data.code
-    activeTab.value = 'tests'
-  } catch (e: any) {
-    console.error(e)
-  } finally {
-    loadingTests.value = false
-  }
-}
-
-async function genDocs() {
-  loadingDocs.value = true
-  try {
-    const res = await axios.post('/api/docs', { code: codeText.value})
-    codeText.value = res.data.code
-    activeTab.value = 'code'
-  } catch (e: any) {
-    console.error(e)
-  } finally {
-    loadingDocs.value = false
-  }
-}
-
-const currentText = computed(() => activeTab.value === 'code' ? codeText.value : testsText.value)
-
-async function copyCurrent() {
-  if (!currentText.value) return
-  await navigator.clipboard.writeText(currentText.value)
-}
-
-function downloadCurrent() {
-  if (!currentText.value) return
-  const blob = new Blob([currentText.value], { type: 'text/plain;charset=utf-8' })
-  const a = document.createElement('a')
-  const baseExt = languageMap[outputLanguage]
-  const suffix = activeTab.value === 'tests' ? '.test' : ''
-  const ext = `${suffix}.${baseExt}`
-  a.href = URL.createObjectURL(blob)
-  a.download = `generated${ext}`
-  a.click()
-  URL.revokeObjectURL(a.href)
-}
-
-onBeforeUnmount(() => {
-  editor?.dispose()
-  codeModel?.dispose()
-  testsModel?.dispose()
-})
+import { ref } from 'vue'
+import { modules } from './modules'
+const drawer = ref(false)
 </script>
 
 <style>
-html, body, #app {
-  height: 100%;
-}
+html, body, #app { height: 100%; }
 
-/* Responsive stacking for action buttons in panels: stack vertically on narrow screens and make buttons full width */
-.panel-actions {
-  display: flex; /* ensure flex behavior */
-  gap: 8px;
-}
-@media (max-width: 600px) {
-  .panel-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .panel-actions > * {
-    width: 100%;
-  }
-}
+.app-bar { backdrop-filter: blur(6px) saturate(140%); background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0)); }
+.nav-trigger { color: #e2e8f0 !important; }
+.nav-trigger .v-img { border-radius: 8px; box-shadow: 0 2px 6px -2px rgba(0,0,0,.6); transition: transform .25s ease, box-shadow .25s ease; }
+.nav-trigger .v-img:hover { transform: scale(1.08) rotate(-4deg); box-shadow: 0 6px 18px -4px rgba(0,0,0,.7); }
+.nav-icon { color: #e2e8f0 !important; }
+.clickable-title { cursor: pointer; user-select: none; }
+.brand { font-weight: 700; letter-spacing: 0.5px; font-size: 1.05rem; background: linear-gradient(90deg,#fff,#c7d2fe,#93c5fd,#22d3ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .accent { color: #9a5fff; -webkit-text-fill-color: #9a5fff; background: none; }
+
+.app-drawer { background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)) !important; backdrop-filter: blur(14px) saturate(160%); border-right: 1px solid rgba(148,163,184,0.18) !important; }
+.drawer-header { color: #e2e8f0; font-weight: 600; }
+.drawer-title { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+.gradient-icon { background: linear-gradient(135deg,#9a5fff,#38d6ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.opacity-divider { opacity: 0.4; }
+
+.v-list { --list-pad: 4px; }
+.v-list-item { border-radius: 10px; margin: 2px 8px; transition: background .18s ease, transform .18s ease; }
+.v-list-item:hover { background: rgba(154,95,255,0.14) !important; transform: translateX(2px); }
+.v-list-item--active { background: linear-gradient(90deg, rgba(154,95,255,0.3), rgba(56,214,238,0.18)) !important; }
+.list-bullet { opacity: 0.85; margin-right: 4px; }
+.list-title { font-weight: 600; font-size: 0.9rem; }
+.v-list-item-title, .v-list-item-subtitle { color: #e2e8f0 !important; }
+.v-list-item-subtitle { opacity: 0.55; }
+
+/* Ensure landing page text is white by default */
+body, .v-main, .v-container, .v-card, .v-alert, p, h2, h3, h4, h5, h6 { color: #e2e8f0; }
+
 </style>
