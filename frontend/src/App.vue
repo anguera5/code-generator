@@ -42,7 +42,7 @@
               rows="8"
               clearable
             />
-            <div class="d-flex gap-2 mb-6">
+            <div class="d-flex mb-6 panel-actions">
               <v-btn class="bg-primary" @click="generate" :loading="loading">Generate!</v-btn>
               <v-btn class="bg-primary" @click="genDocs" :disabled="!codeText" :loading="loadingDocs">Add Documentation</v-btn>
               <v-btn class="bg-primary" @click="genTests" :disabled="!codeText" :loading="loadingTests">Add Unit Tests</v-btn>
@@ -224,5 +224,19 @@ onBeforeUnmount(() => {
 html, body, #app {
   height: 100%;
 }
-.gap-2 > * + * { margin-left: 8px; }
+
+/* Responsive stacking for action buttons in panels: stack vertically on narrow screens and make buttons full width */
+.panel-actions {
+  display: flex; /* ensure flex behavior */
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .panel-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .panel-actions > * {
+    width: 100%;
+  }
+}
 </style>
