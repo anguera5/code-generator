@@ -8,6 +8,7 @@ const AboutPage = () => import('./modules/about/AboutMe.vue')
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomePage },
   { path: '/code-generator', name: 'code-generator', component: CodeGeneratorApp },
+  { path: '/code-review', name: 'code-review', component: CodeReviewApp },
   { path: '/about', name: 'about', component: AboutPage }
 ]
 
