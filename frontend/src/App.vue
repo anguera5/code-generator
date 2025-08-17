@@ -1,10 +1,12 @@
 <template>
   <v-app>
   <v-navigation-drawer v-model="drawer" temporary class="app-drawer">
-      <div class="drawer-header d-flex align-center px-4 py-3">
+      <div class="drawer-header d-flex align-center py-3">
         <v-btn class="nav-trigger mr-2" icon variant="text" @click="drawer = false" :aria-label="'Close project drawer'">
           <v-img src="/src/assets/favicon.png" width="26" height="26" alt="Close drawer" />
         </v-btn>
+      </div>
+      <div class="drawer-header d-flex align-center px-4 py-3">
         <v-icon icon="mdi-cube-outline" size="26" class="mr-2 gradient-icon" />
         <span class="drawer-title">Projects</span>
       </div>
@@ -25,6 +27,26 @@
           </v-list-item-subtitle>
         </v-list-item>
       </v-list>
+      <template #append>
+        <div class="about-section px-4 pb-4 pt-2">
+          <v-divider class="mb-3 opacity-divider" />
+          <div class="drawer-header d-flex align-center py-3">
+            <v-icon icon="mdi-account" size="26" class="mr-2 gradient-icon" />
+            <span class="drawer-title">About me</span>
+          </div>
+          <div class="d-flex align-center ga-2">
+            <v-btn icon variant="tonal" size="small" :to="'/about'">
+              <v-icon icon="mdi-information" />
+            </v-btn>
+            <v-btn icon variant="tonal" size="small" :href="links.linkedin" target="_blank" rel="noopener" aria-label="LinkedIn profile">
+              <v-icon icon="mdi-linkedin" />
+            </v-btn>
+            <v-btn icon variant="tonal" size="small" :href="links.github" target="_blank" rel="noopener" aria-label="GitHub profile">
+              <v-icon icon="mdi-github" />
+            </v-btn>
+          </div>
+        </div>
+      </template>
     </v-navigation-drawer>
 
     <v-app-bar flat color="transparent" class="app-bar">
@@ -47,6 +69,10 @@
 import { ref } from 'vue'
 import { modules } from './modules'
 const drawer = ref(false)
+const links = {
+  linkedin: 'https://www.linkedin.com/in/albert-anguera-sempere/',
+  github: 'https://github.com/anguera5'
+}
 </script>
 
 <style>
@@ -75,6 +101,12 @@ html, body, #app { height: 100%; }
 .list-title { font-weight: 600; font-size: 0.9rem; }
 .v-list-item-title, .v-list-item-subtitle { color: #e2e8f0 !important; }
 .v-list-item-subtitle { opacity: 0.55; }
+
+
+.about-section { color:#e2e8f0; font-size:0.75rem; }
+.about-label { font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; opacity:0.55; }
+.about-section .v-btn { background: rgba(255,255,255,0.07); }
+.about-section .v-btn:hover { background: rgba(154,95,255,0.25); }
 
 /* Ensure landing page text is white by default */
 body, .v-main, .v-container, .v-card, .v-alert, p, h2, h3, h4, h5, h6 { color: #e2e8f0; }

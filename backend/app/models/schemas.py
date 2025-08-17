@@ -21,3 +21,16 @@ class BasicResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class PullRequestInfo(BaseModel):
+    title: str
+    body: str | None = None
+    base_branch: str | None = None
+    head_branch: str | None = None
+    repository: str | None = None
+    diff_url: str | None = None
+
+
+class CodeReviewResponse(BaseModel):
+    review: str

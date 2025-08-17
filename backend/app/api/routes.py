@@ -4,6 +4,7 @@ from app.models.schemas import (
     GenerateResponse,
     BasicRequest,
     BasicResponse,
+    CodeReviewResponse,
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
@@ -31,3 +32,31 @@ async def generate_tests(payload: BasicRequest):
 async def generate_docs(payload: BasicRequest):
     text = llm.generate_docs(payload.code)
     return BasicResponse(code=text)
+
+
+@router.post("/code-review/webhook", response_model=CodeReviewResponse)
+async def code_review_webhook(payload: dict):
+    """Accept a generic pull request webhook payload (GitHub-style) and return an LLM review.
+
+    Expected minimal shape:
+    {
+        "action": "opened",
+        "pull_request": {"title": str, "body": str, "base": {"ref": str}, "head": {"ref": str}, "diff_url": str},
+        "repository": {"full_name": str}
+    }
+    """
+    pr = payload.get("pull_request") or {}
+    title = pr.get("title") or "(untitled PR)"
+    body = pr.get("body") or ""
+    base_branch = (pr.get("base") or {}).get("ref")
+    head_branch = (pr.get("head") or {}).get("ref")
+    diff_url = pr.get("diff_url")
+    repository = (payload.get("repository") or {}).get("full_name")
+
+    diff_summary = (
+    f"Repository: {repository}\nBase: {base_branch} -> Head: {head_branch}\nDiff URL: {diff_url}"
+    if (repository or base_branch or head_branch or diff_url)
+    else "(no diff metadata provided)"
+    )
+    review_text = llm.generate_code_review(title, body, diff_summary)
+    return CodeReviewResponse(review=review_text)

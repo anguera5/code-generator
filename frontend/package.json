@@ -9,13 +9,14 @@
     "preview": "vite preview --port 5173"
   },
   "dependencies": {
+    "@mdi/font": "^7.4.47",
     "axios": "^1.7.2",
+    "monaco-editor": "^0.49.0",
     "pinia": "^2.1.7",
     "roboto-fontface": "^0.10.0",
     "vue": "^3.4.38",
     "vue-router": "^4.4.0",
-    "vuetify": "^3.6.11",
-    "monaco-editor": "^0.49.0"
+    "vuetify": "^3.6.11"
   },
   "devDependencies": {
     "@types/node": "^20.14.12",
