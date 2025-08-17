@@ -44,7 +44,7 @@
     <h2 class="text-h6 mb-2">4. Response</h2>
     <p class="mb-4">The API returns JSON: <code>{ "review": "...structured feedback..." }</code></p>
 
-    <h2 class="text-h6 mb-2">5. Recommendations</h2>
+<!--    <h2 class="text-h6 mb-2">5. Recommendations</h2>
     <ul class="mb-6 small">
       <li>Add HMAC signature validation (e.g., <code>X-Hub-Signature-256</code>).</li>
       <li>Persist reviews (database) for audit history.</li>
@@ -54,7 +54,7 @@
 
     <v-alert type="warning" variant="tonal">
       This is an MVP; do not expose publicly without authentication and validation hardening.
-    </v-alert>
+    </v-alert>-->
   </v-container>
 </template>
 
