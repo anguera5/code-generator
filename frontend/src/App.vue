@@ -57,6 +57,16 @@
         <span class="brand">GenAI<span class="accent">Portfolio</span></span>
       </v-toolbar-title>
       <v-spacer />
+      <v-text-field
+        v-model="apiKeyStore.apiKey"
+        label="API Key"
+        type="password"
+        variant="outlined"
+        density="compact"
+        hide-details
+        style="max-width:230px"
+        class="mr-4 api-key-field"
+      />
     </v-app-bar>
 
     <v-main>
@@ -68,11 +78,13 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { modules } from './modules'
+import { useApiKeyStore } from './stores/apiKey'
 const drawer = ref(false)
 const links = {
   linkedin: 'https://www.linkedin.com/in/albert-anguera-sempere/',
   github: 'https://github.com/anguera5'
 }
+const apiKeyStore = useApiKeyStore()
 </script>
 
 <style>
@@ -110,5 +122,7 @@ html, body, #app { height: 100%; }
 
 /* Ensure landing page text is white by default */
 body, .v-main, .v-container, .v-card, .v-alert, p, h2, h3, h4, h5, h6 { color: #e2e8f0; }
+
+.api-key-field input { font-size: 0.75rem; letter-spacing: 0.5px; }
 
 </style>

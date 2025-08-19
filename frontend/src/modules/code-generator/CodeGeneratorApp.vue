@@ -4,24 +4,12 @@
       <v-col cols="12" md="6">
         <h1>Code Generation</h1>
       </v-col>
-      <v-col cols="12" md="4" class="text-right">
+      <v-col cols="12" md="6" class="text-right">
         <v-select
           v-model="language"
           :items="languages"
           label="Language"
           style="max-width: 200px; min-width: 140px;"
-          hide-details
-          density="comfortable"
-          variant="outlined"
-        />
-      </v-col>
-      <v-col cols="12" md="2" class="text-left">
-        <v-text-field
-          v-model="apiKey"
-          label="API Key"
-          type="password"
-          style="max-width: 200px; min-width: 140px;"
-          autocomplete="off"
           hide-details
           density="comfortable"
           variant="outlined"
@@ -73,6 +61,7 @@ import '../../monaco-setup'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import * as monaco from 'monaco-editor'
 import axios from 'axios'
+import { useApiKeyStore } from '../../stores/apiKey'
 
 const prompt = ref('')
 const codeText = ref('')
@@ -90,7 +79,7 @@ const languageMap = {
 type Language = keyof typeof languageMap
 const languages = Object.keys(languageMap)
 const language = ref<Language>('python')
-const apiKey = ref('')
+const apiKeyStore = useApiKeyStore()
 
 let outputLanguage = ''
 
@@ -145,7 +134,7 @@ watch(activeTab, (tab) => {
 async function generate() {
   loading.value = true
   try {
-    const res = await axios.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKey.value})
+    const res = await axios.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKeyStore.apiKey})
     if (res.data.code === 'Please introduce code-related prompt') {
       window.alert('The inputted query was not code related according to our model.')
       return
