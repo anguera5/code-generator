@@ -2,7 +2,7 @@ import re
 from fastapi import HTTPException
 from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from app.core.config import get_settings
 from app.core.prompts import (
     generate_code_template,
@@ -25,7 +25,7 @@ class LLMModel:
         self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         self.vector_store = Chroma(
             embedding_function=self.embeddings,
-            persist_directory="../chroma_db",
+            persist_directory="app/chroma_db",
         )
         self.rag_chain = None
 
@@ -83,7 +83,7 @@ class LLMModel:
     def generate_rag_response(self, prompt, api_key, config_key):
         if not self.check_model_running(api_key) or not self.rag_chain:
             print("Initializing chain")
-            print("Using model: ", self.llm.name)
+            print("Using model: ", self.llm.get_name())
             self.initialize_chain()
         return rag_answer_process(self.rag_chain, prompt, config_key)
 
