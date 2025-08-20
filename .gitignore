@@ -13,3 +13,6 @@ dist/
 .vscode/
 .DS_Store
 *.log
+
+# Folders
+backend/chroma_db/
