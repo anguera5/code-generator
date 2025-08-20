@@ -15,4 +15,4 @@ dist/
 *.log
 
 # Folders
-backend/chroma_db/
+backend/app/chroma_db/
