@@ -1,6 +1,8 @@
 import re
 from fastapi import HTTPException
 from langchain_openai import ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain.embeddings import HuggingFaceEmbeddings
 from app.core.config import get_settings
 from app.core.prompts import (
     generate_code_template,
@@ -8,23 +10,28 @@ from app.core.prompts import (
     generate_documentation_template,
     generate_code_review_template,
 )
+from app.services.rag_model import build_langgraph, rag_answer_process
+import logging
 
 _settings = get_settings()
-
+logger = logging.getLogger(__name__)
 
 class LLMModel:
     def __init__(self):
         self.model = _settings.openai_model
         self.temperature = _settings.temperature
-        self.api_key = ''
+        self.api_key = None
         self.llm = None
+        self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        self.vector_store = Chroma(
+            embedding_function=self.embeddings,
+            persist_directory="../chroma_db",
+        )
+        self.rag_chain = None
 
-    # ---------------------- Code Generation ----------------------
-    def generate_code(self, prompt: str, language: str, api_key: str):
-        if not prompt or len(prompt) < 1 or len(prompt) > 8000:
-            raise HTTPException(status_code=400, detail="Please introduce code-related prompt")
+    def check_model_running(self, api_key: str):
         # Re-initialize LLM if API key changed
-        if api_key and api_key != self.api_key:
+        if not self.api_key and api_key not in [None, '', self.api_key]:
             self.api_key = api_key
             self.llm = ChatOpenAI(
                 model=self.model,
@@ -33,6 +40,14 @@ class LLMModel:
             )
         if not self.llm:
             raise HTTPException(status_code=400, detail="API key is required to initialize the model.")
+        return True
+
+
+    # ---------------------- Code Generation ----------------------
+    def generate_code(self, prompt: str, language: str, api_key: str):
+        self.check_model_running(api_key)
+        if not prompt or len(prompt) < 1 or len(prompt) > 8000:
+            raise HTTPException(status_code=400, detail="Please introduce code-related prompt")
         processed_prompt = generate_code_template(language, prompt)
         response = self.llm.invoke(processed_prompt)
         text = response.content or ""
@@ -64,6 +79,17 @@ class LLMModel:
         response = self.llm.invoke(processed_prompt)
         text = response.content or ""
         return self.strip_markdown_fences(text)
+    
+    def generate_rag_response(self, prompt, api_key, config_key):
+        if not self.check_model_running(api_key) or not self.rag_chain:
+            print("Initializing chain")
+            print("Using model: ", self.llm.name)
+            self.initialize_chain()
+        return rag_answer_process(self.rag_chain, prompt, config_key)
+
+    def initialize_chain(self):
+        self.rag_chain = build_langgraph(self.llm, self.vector_store)
+        return
 
     # ---------------------- Helpers ----------------------
     def strip_markdown_fences(self, text: str) -> str:

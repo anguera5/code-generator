@@ -15,4 +15,9 @@ export const modules: ModuleMeta[] = [
     title: 'Code Review',
     description: 'LLM-assisted pull request review via repository webhook.'
   }
+  ,{
+    path: '/fpf-rag',
+    title: 'FPF RAG',
+    description: 'Retrieval-augmented Q&A (prototype chatbot).'
+  }
 ]

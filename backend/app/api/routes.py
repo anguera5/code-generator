@@ -5,6 +5,8 @@ from app.models.schemas import (
     BasicRequest,
     BasicResponse,
     CodeReviewResponse,
+    FpfRagRequest,
+    FpfRagResponse
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
@@ -60,3 +62,8 @@ async def code_review_webhook(payload: dict):
     )
     review_text = llm.generate_code_review(title, body, diff_summary)
     return CodeReviewResponse(review=review_text)
+
+@router.post("/fpf-rag/chat", response_model=FpfRagResponse)
+async def fpf_rag_chat(payload: FpfRagRequest):
+    text = llm.generate_rag_response(payload.prompt, payload.api_key, payload.config_key)
+    return FpfRagResponse(reply=text)

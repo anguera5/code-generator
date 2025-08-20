@@ -15,3 +15,7 @@ Requires-Dist: notebook>=7.4.5
 Requires-Dist: langchain-ollama>=0.2.1
 Requires-Dist: langchain>=0.3.27
 Requires-Dist: langchain-openai>=0.2.2
+Requires-Dist: langgraph>=0.6.5
+Requires-Dist: langchain-community>=0.3.27
+Requires-Dist: chromadb>=1.0.20
+Requires-Dist: sentence-transformers>=5.1.0
