@@ -18,8 +18,10 @@ dependencies = [
   "langchain>=0.3.27",
   "langchain-openai>=0.2.2",
   "langgraph>=0.6.5",
-  "langchain-community[chromadb]>=0.3.27",
   "chromadb>=1.0.20",
+  "notebook>=7.4.5",
+  "lxml>=6.0.0",
+  "langchain-chroma>=0.2.5",
 ]
 
 [tool.setuptools.packages.find]

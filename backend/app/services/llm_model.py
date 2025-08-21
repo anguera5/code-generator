@@ -1,8 +1,8 @@
 import re
 from fastapi import HTTPException
 from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 from app.core.config import get_settings
 from app.core.prompts import (
     generate_code_template,
@@ -22,11 +22,8 @@ class LLMModel:
         self.temperature = _settings.temperature
         self.api_key = None
         self.llm = None
-        self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        self.vector_store = Chroma(
-            embedding_function=self.embeddings,
-            persist_directory="app/chroma_db",
-        )
+        self.embeddings = None
+        self.vector_store = None
         self.rag_chain = None
 
     def check_model_running(self, api_key: str):
@@ -37,6 +34,11 @@ class LLMModel:
                 model=self.model,
                 temperature=self.temperature,
                 openai_api_key=api_key,
+            )
+            self.embeddings = OpenAIEmbeddings(model=_settings.openai_embedding_model, api_key=api_key)
+            self.vector_store = Chroma(
+                embedding_function=self.embeddings,
+                persist_directory="app/chroma_db",
             )
         if not self.llm:
             raise HTTPException(status_code=400, detail="API key is required to initialize the model.")

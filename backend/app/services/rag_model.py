@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, AIMessage
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.graph import MessagesState, StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -9,7 +9,7 @@ def make_retrieve_tool(vector_store):
     def retrieve(query: str):
         """Retrieve information related to a query. Leave the query as the user left it to increase the amount of matching characters.
         Just correct syntax if needed"""
-        retrieved_docs = vector_store.similarity_search(query, k=2)
+        retrieved_docs = vector_store.similarity_search(query, k=4)
         serialized = "\n\n".join(
             (f"Source: {doc.metadata}\nContent: {doc.page_content}")
             for doc in retrieved_docs
@@ -43,6 +43,13 @@ def make_generate_node(llm):
             else:
                 break
         tool_messages = recent_tool_messages[::-1]
+
+        # If no retrieval tool messages, return explicit fallback (prevent hallucination)
+        if not tool_messages:
+            fallback = AIMessage(
+                content="I don't have access to this information.",
+            )
+            return {"messages": [fallback]}
 
         # Format into prompt
         docs_content = "\n\n".join(doc.content for doc in tool_messages)
@@ -91,12 +98,15 @@ def build_langgraph(llm, vector_store):
     return graph_builder.compile(checkpointer=memory)
 
 def rag_answer_process(graph, question, config_key):
+    last = None
     for step in graph.stream(
         {"messages": [{"role": "user", "content": question}]},
         stream_mode="values",
         config={"configurable": {"thread_id": config_key}},
     ):
+        last = step
         step["messages"][-1].pretty_print()
 
-    llm_response = step["messages"][-1].content
-    return llm_response
+    if not last:
+        return "I don't have access to this information."
+    return last["messages"][-1].content
