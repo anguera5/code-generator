@@ -51,3 +51,13 @@ class ChemblSqlPlanResponse(BaseModel):
     sql: str
     related_tables: list[str] | None = None
 
+
+class ChemblSqlExecuteRequest(BaseModel):
+    sql: str = Field(..., min_length=1)
+    limit: int | None = Field(default=100, ge=1, le=10000)
+
+
+class ChemblSqlExecuteResponse(BaseModel):
+    columns: list[str]
+    rows: list[list]
+

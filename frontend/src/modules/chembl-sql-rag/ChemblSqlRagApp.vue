@@ -19,6 +19,9 @@
         <v-btn color="primary" :loading="loading" :disabled="!apiKeyStore.apiKey || !question.trim()" @click="planSql">
           Plan SQL
         </v-btn>
+        <v-btn class="ml-2" color="secondary" :disabled="!sql.trim()" :loading="execLoading" @click="execSql">
+          Run
+        </v-btn>
       </div>
     </v-card>
 
@@ -37,6 +40,29 @@
         </div>
       </div>
     </v-card>
+
+    <v-card v-if="rows.length" class="pa-4 mt-6" elevation="2" max-width="980">
+      <div class="d-flex align-center">
+        <div class="text-subtitle-2">Results ({{ rows.length }} rows)</div>
+        <v-spacer />
+        <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details style="max-width: 120px" />
+      </div>
+      <v-divider class="my-2" />
+      <div class="table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th v-for="c in columns" :key="c">{{ c }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, idx) in rows" :key="idx">
+              <td v-for="(c, j) in r" :key="j">{{ c }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </v-card>
   </v-container>
 </template>
 
@@ -50,6 +76,10 @@ const loading = ref(false)
 const question = ref('')
 const sql = ref('')
 const related = ref<string[]>([])
+const execLoading = ref(false)
+const columns = ref<string[]>([])
+const rows = ref<any[][]>([])
+const limit = ref(100)
 
 async function planSql() {
   loading.value = true
@@ -65,10 +95,31 @@ async function planSql() {
     loading.value = false
   }
 }
+
+async function execSql() {
+  execLoading.value = true
+  columns.value = []
+  rows.value = []
+  try {
+    const res = await axios.post('/api/chembl/execute-sql', { sql: sql.value, limit: limit.value })
+    columns.value = res.data.columns
+    rows.value = res.data.rows
+  } catch (e:any) {
+    columns.value = []
+    rows.value = []
+    sql.value = (sql.value ? sql.value + '\n\n' : '') + (e?.response?.data?.detail || e?.message || 'Failed to execute SQL')
+  } finally {
+    execLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
 .result-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; white-space: pre-wrap; min-height: 48px; }
 .result-box.sql { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 .chip-list { display:flex; flex-wrap: wrap; align-items: flex-start; }
+.table-wrapper { overflow:auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+.result-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.result-table th, .result-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
+.result-table thead th { position: sticky; top: 0; background: rgba(255,255,255,0.06); text-align: left; }
 </style>

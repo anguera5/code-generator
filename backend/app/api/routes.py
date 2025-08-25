@@ -9,10 +9,12 @@ from app.models.schemas import (
     FpfRagResponse,
     ChemblSqlPlanRequest,
     ChemblSqlPlanResponse,
+    ChemblSqlExecuteRequest,
+    ChemblSqlExecuteResponse,
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
-from app.services.chembl_sql_agent import plan_query, retrieve_related_tables, synthesize_sql
+from app.services.chembl_sql_exec import execute_sql
 
 router = APIRouter()
 settings = get_settings()
@@ -75,3 +77,14 @@ async def fpf_rag_chat(payload: FpfRagRequest):
 async def chembl_plan_sql(payload: ChemblSqlPlanRequest):
     sql, related_tables = llm.generate_sql_response(payload.prompt, payload.api_key)
     return ChemblSqlPlanResponse(sql=sql, related_tables=related_tables)
+
+
+@router.post("/chembl/execute-sql", response_model=ChemblSqlExecuteResponse)
+async def chembl_execute_sql(payload: ChemblSqlExecuteRequest):
+    try:
+        print(payload.sql, payload.limit)
+        columns, rows = execute_sql(payload.sql, payload.limit)
+        return ChemblSqlExecuteResponse(columns=columns, rows=rows)
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e)) from e
