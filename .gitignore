@@ -16,3 +16,5 @@ dist/
 
 # Folders
 backend/app/chroma_db/
+backend/app/scripts/
+backend/app/chembl/
