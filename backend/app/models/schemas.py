@@ -42,3 +42,12 @@ class FpfRagRequest(BaseModel):
 class FpfRagResponse(BaseModel):
     reply: str
 
+class ChemblSqlPlanRequest(BaseModel):
+    prompt: str
+    api_key: str
+
+
+class ChemblSqlPlanResponse(BaseModel):
+    sql: str
+    related_tables: list[str] | None = None
+

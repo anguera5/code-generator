@@ -20,4 +20,9 @@ export const modules: ModuleMeta[] = [
     title: 'FPF RAG',
     description: 'Retrieval-augmented Q&A (prototype chatbot).'
   }
+  ,{
+    path: '/chembl-sql-rag',
+    title: 'ChEMBL SQL RAG',
+    description: 'Build schema index and query ChEMBL via RAG-generated SQL.'
+  }
 ]

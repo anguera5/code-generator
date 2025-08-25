@@ -11,6 +11,7 @@ from app.core.prompts import (
     generate_code_review_template,
 )
 from app.services.rag_model import build_langgraph, rag_answer_process
+from app.services.chembl_sql_agent import sql_answer_process
 import logging
 
 _settings = get_settings()
@@ -23,7 +24,8 @@ class LLMModel:
         self.api_key = None
         self.llm = None
         self.embeddings = None
-        self.vector_store = None
+        self.vector_store_website = None
+        self.vector_store_sql = None
         self.rag_chain = None
 
     def check_model_running(self, api_key: str):
@@ -36,7 +38,12 @@ class LLMModel:
                 openai_api_key=api_key,
             )
             self.embeddings = OpenAIEmbeddings(model=_settings.openai_embedding_model, api_key=api_key)
-            self.vector_store = Chroma(
+            self.vector_store_website = Chroma(
+                embedding_function=self.embeddings,
+                persist_directory="app/chroma_db",
+            )
+            self.vector_store_sql = Chroma(
+                collection_name="chembl_schema",
                 embedding_function=self.embeddings,
                 persist_directory="app/chroma_db",
             )
@@ -90,8 +97,12 @@ class LLMModel:
         return rag_answer_process(self.rag_chain, prompt, config_key)
 
     def initialize_chain(self):
-        self.rag_chain = build_langgraph(self.llm, self.vector_store)
+        self.rag_chain = build_langgraph(self.llm, self.vector_store_website)
         return
+    
+    def generate_sql_response(self, prompt, api_key):
+        self.check_model_running(api_key)
+        return sql_answer_process(prompt, self)
 
     # ---------------------- Helpers ----------------------
     def strip_markdown_fences(self, text: str) -> str:

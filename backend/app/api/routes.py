@@ -6,10 +6,13 @@ from app.models.schemas import (
     BasicResponse,
     CodeReviewResponse,
     FpfRagRequest,
-    FpfRagResponse
+    FpfRagResponse,
+    ChemblSqlPlanRequest,
+    ChemblSqlPlanResponse,
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
+from app.services.chembl_sql_agent import plan_query, retrieve_related_tables, synthesize_sql
 
 router = APIRouter()
 settings = get_settings()
@@ -67,3 +70,8 @@ async def code_review_webhook(payload: dict):
 async def fpf_rag_chat(payload: FpfRagRequest):
     text = llm.generate_rag_response(payload.prompt, payload.api_key, payload.config_key)
     return FpfRagResponse(reply=text)
+
+@router.post("/chembl/plan-sql", response_model=ChemblSqlPlanResponse)
+async def chembl_plan_sql(payload: ChemblSqlPlanRequest):
+    sql, related_tables = llm.generate_sql_response(payload.prompt, payload.api_key)
+    return ChemblSqlPlanResponse(sql=sql, related_tables=related_tables)
