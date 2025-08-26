@@ -1,32 +1,151 @@
 <template>
-  <v-container class="py-8" fluid>
-    <h1>About Me</h1>
-    <p class="mt-4">
-      Hello — I'm Albert Anguera. This site demonstrates GenAI utilities: a code generator and
-      a code-review webhook that uses an LLM to review pull requests. Use the <strong>Code Review</strong>
-      module to configure a repository webhook that posts PR events to the backend for automated reviews.
-    </p>
+  <div class="about">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-bg">
+        <div class="blob b1" />
+        <div class="blob b2" />
+        <div class="grid-overlay" />
+      </div>
+      <v-container class="hero-inner">
+        <v-row align="center" class="ga-4">
+          <v-col cols="12" md="4" class="d-flex justify-center">
+            <div class="avatar-wrap">
+              <div class="ring" />
+              <v-img src="/src/assets/avatar.png" alt="Albert Anguera" width="200" height="200" cover class="avatar" position="50% 10%"/>
+            </div>
+          </v-col>
+          <v-col cols="12" md="8">
+            <div class="eyebrow">About</div>
+            <h1 class="headline">Albert Anguera Sempere</h1>
+            <div class="role">Data Scientist · Food Packaging Forum</div>
+            <div class="chips d-flex ga-2 mt-3 flex-wrap">
+              <v-chip size="small" color="primary" variant="tonal">Physics</v-chip>
+              <v-chip size="small" color="secondary" variant="tonal">Chemistry</v-chip>
+              <v-chip size="small" color="primary" variant="tonal">Informatics</v-chip>
+              <v-chip size="small" color="secondary" variant="tonal">ML & RAG</v-chip>
+              <v-chip size="small" color="primary" variant="tonal">Data Platforms</v-chip>
+            </div>
+            <div class="mt-4 op-85">
+              I’m building this GenAI portfolio as part of Codecademy’s AI Bootcamp — a hands-on space to explore
+              practical patterns like retrieval, code generation, and intelligent data interfaces.
+            </div>
+            <div class="links d-flex ga-2 mt-4">
+              <v-btn :href="links.linkedin" target="_blank" rel="noopener" prepend-icon="mdi-linkedin" variant="tonal">LinkedIn</v-btn>
+              <v-btn :href="links.github" target="_blank" rel="noopener" prepend-icon="mdi-github" variant="tonal">GitHub</v-btn>
+            </div>
+          </v-col>
+        </v-row>
+      </v-container>
+    </section>
 
-    <v-divider class="my-6" />
+    <!-- Sections -->
+    <section class="sections">
+      <v-container>
+        <v-row>
+          <!-- Who I am -->
+          <v-col cols="12" md="6">
+            <v-card class="glass hover-raise h-100">
+              <v-card-item>
+                <div class="d-flex align-center ga-2 mb-2">
+                  <v-icon color="primary" icon="mdi-account-badge-outline" />
+                  <div class="text-subtitle-1 font-weight-600">Who I am</div>
+                </div>
+                <div class="op-85">
+                  I work at the Food Packaging Forum where I focus on turning messy, real-world data into reliable
+                  insights and systems. My day-to-day spans data engineering, analytics, and applied AI.
+                </div>
+              </v-card-item>
+            </v-card>
+          </v-col>
 
-    <h2 class="text-h6 mb-2">Contact</h2>
-    <p>
-      Find me on:
-    </p>
-    <div class="d-flex gap-3 mt-2">
-      <v-btn icon :href="links.linkedin" target="_blank" rel="noopener" aria-label="LinkedIn">
-        <v-icon>mdi-linkedin</v-icon>
-      </v-btn>
-      <v-btn icon :href="links.github" target="_blank" rel="noopener" aria-label="GitHub">
-        <v-icon>mdi-github</v-icon>
-      </v-btn>
-    </div>
+          <!-- Why this portfolio -->
+          <v-col cols="12" md="6">
+            <v-card class="glass hover-raise h-100">
+              <v-card-item>
+                <div class="d-flex align-center ga-2 mb-2">
+                  <v-icon color="secondary" icon="mdi-rocket-launch-outline" />
+                  <div class="text-subtitle-1 font-weight-600">Why this portfolio</div>
+                </div>
+                <div class="op-85">
+                  This portfolio is a living lab created during Codecademy’s AI Bootcamp. It showcases opinionated
+                  implementations of GenAI capabilities — from LLM-assisted coding to RAG question answering — with a
+                  focus on clarity and real-world usefulness.
+                </div>
+              </v-card-item>
+            </v-card>
+          </v-col>
 
-    <!--<v-alert type="info" class="mt-8" variant="tonal">
-      Edit this page in <code>frontend/src/pages/AboutPage.vue</code> to add more personal info,
-      links, or a short bio.
-    </v-alert>-->
-  </v-container>
+          <!-- Background -->
+          <v-col cols="12" md="6">
+            <v-card class="glass hover-raise h-100">
+              <v-card-item>
+                <div class="d-flex align-center ga-2 mb-2">
+                  <v-icon color="primary" icon="mdi-school-outline" />
+                  <div class="text-subtitle-1 font-weight-600">Background</div>
+                </div>
+                <div class="op-85">
+                  I bring together physics, chemistry, and computer science: BSc in Physics and BSc in Chemistry from
+                  Universitat Autònoma de Barcelona, plus a Master in Informatics from the University of Zurich.
+                </div>
+              </v-card-item>
+            </v-card>
+          </v-col>
+
+          <!-- Selected work -->
+          <v-col cols="12" md="6">
+            <v-card class="glass hover-raise h-100">
+              <v-card-item>
+                <div class="d-flex align-center ga-2 mb-2">
+                  <v-icon color="secondary" icon="mdi-briefcase-outline" />
+                  <div class="text-subtitle-1 font-weight-600">Selected work</div>
+                </div>
+                <ul class="list op-85">
+                  <li>Built ML models to forecast bioreactor cell growth, inform harvest timing, and predict half-lives.</li>
+                  <li>Developed and maintained <strong>enviPath</strong>, a biodegradation database and prediction system for chemicals.</li>
+                  <li>Data infrastructure and dashboards: from pipelines to polished visualizations.</li>
+                </ul>
+              </v-card-item>
+            </v-card>
+          </v-col>
+
+          <!-- What I do at FPF -->
+          <v-col cols="12" md="6">
+            <v-card class="glass hover-raise h-100">
+              <v-card-item>
+                <div class="d-flex align-center ga-2 mb-2">
+                  <v-icon color="primary" icon="mdi-database-cog-outline" />
+                  <div class="text-subtitle-1 font-weight-600">What I do at FPF</div>
+                </div>
+                <ul class="list op-85">
+                  <li>Process, clean, and structure data for analysis and research.</li>
+                  <li>Design and maintain datasets, databases, and supporting infrastructure.</li>
+                  <li>Maintain existing dashboards and build new ones to answer evolving questions.</li>
+                </ul>
+              </v-card-item>
+            </v-card>
+          </v-col>
+
+          <!-- Purpose -->
+          <v-col cols="12" md="6">
+            <v-card class="glass hover-raise h-100">
+              <v-card-item>
+                <div class="d-flex align-center ga-2 mb-2">
+                  <v-icon color="secondary" icon="mdi-heart-pulse" />
+                  <div class="text-subtitle-1 font-weight-600">Purpose</div>
+                </div>
+                <div class="op-85">
+                  I care about how materials interact with people and the environment. My goal is to help clarify how
+                  chemicals in food packaging relate to health, support safer regulations, and make sure people have
+                  access to choices that align with long-term well-being.
+                </div>
+              </v-card-item>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-container>
+    </section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -37,6 +156,33 @@ const links = {
 </script>
 
 <style scoped>
-h1, p, h2 { color: #e2e8f0; }
-code { background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 6px; }
+.about { position: relative; }
+.op-85 { opacity: 0.85; }
+.glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(8px) saturate(160%); border: 1px solid rgba(148,163,184,0.18); }
+.hover-raise { transition: transform .2s ease, box-shadow .2s ease; }
+.hover-raise:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(0,0,0,.45); }
+
+/* Hero */
+.hero { position: relative; overflow: hidden; padding: 64px 0 24px; }
+.hero-inner { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; }
+.eyebrow { letter-spacing: 1px; font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; margin-bottom: 6px; }
+.headline { font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 800; line-height: 1.05; }
+.role { opacity: 0.85; margin-top: 2px; }
+.avatar-wrap { position: relative; width: 220px; height: 220px; display: grid; place-items: center; }
+.avatar { border-radius: 50%; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.ring { position: absolute; width: 210px; height: 210px; border-radius: 50%; background: conic-gradient(from 0deg, #9a5fff, #38d6ee, #9a5fff); filter: blur(10px); opacity: .55; animation: spin 12s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
+.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
+.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
+.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
+@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
+@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
+.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+
+/* Sections */
+.sections { padding: 16px 0 40px; }
+.list { padding-left: 18px; }
+.list li { margin-bottom: 6px; }
 </style>
