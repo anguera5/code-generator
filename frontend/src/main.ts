@@ -7,6 +7,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import './styles.css'
 import { router } from './router'
+import GlobalNotifierPlugin from './plugins/global-notifier'
 
 
 const vuetify = createVuetify({
@@ -36,4 +37,4 @@ const vuetify = createVuetify({
 })
 
 const pinia = createPinia()
-createApp(App).use(router).use(pinia).use(vuetify).mount('#app')
+createApp(App).use(router).use(pinia).use(vuetify).use(GlobalNotifierPlugin).mount('#app')

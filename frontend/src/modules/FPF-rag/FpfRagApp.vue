@@ -34,12 +34,14 @@
 
 <script lang="ts" setup>
 import { ref, nextTick, onMounted } from 'vue'
-import axios from 'axios'
+import http from '../../lib/http'
+import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
 
 interface ChatMessage { id: string; role: 'user' | 'assistant'; text: string }
 
 const apiKeyStore = useApiKeyStore()
+const notify = useNotifyStore()
 const messages = ref<ChatMessage[]>([])
 const draft = ref('')
 const loading = ref(false)
@@ -60,10 +62,11 @@ async function send() {
   draft.value = ''
   loading.value = true
   try {
-    const res = await axios.post('/api/fpf-rag/chat', { prompt: content, api_key: apiKeyStore.apiKey, config_key: chatbotConfigKey })
+  const res = await http.post('/api/fpf-rag/chat', { prompt: content, api_key: apiKeyStore.apiKey, config_key: chatbotConfigKey })
     push('assistant', res.data.reply)
   } catch (e:any) {
-    push('assistant', e?.response?.data?.detail || 'Error contacting backend')
+    const msg = e?.response?.data?.detail || 'Error contacting backend'
+    push('assistant', msg)
   } finally {
     loading.value = false
   }

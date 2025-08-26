@@ -60,7 +60,8 @@
 import '../../monaco-setup'
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import * as monaco from 'monaco-editor'
-import axios from 'axios'
+import http from '../../lib/http'
+import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
 
 const prompt = ref('')
@@ -80,6 +81,7 @@ type Language = keyof typeof languageMap
 const languages = Object.keys(languageMap)
 const language = ref<Language>('python')
 const apiKeyStore = useApiKeyStore()
+const notify = useNotifyStore()
 
 let outputLanguage = ''
 
@@ -134,17 +136,17 @@ watch(activeTab, (tab) => {
 async function generate() {
   loading.value = true
   try {
-    const res = await axios.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKeyStore.apiKey})
+  const res = await http.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKeyStore.apiKey})
     if (res.data.code === 'Please introduce code-related prompt') {
-      window.alert('The inputted query was not code related according to our model.')
+      notify.warning('The inputted query was not code related according to our model.')
       return
     }
     codeText.value = res.data.code
     activeTab.value = 'code'
     outputLanguage = language.value
   } catch (e: any) {
-    const errorMsg = e?.response?.data?.detail || 'Generation failed'
-    window.alert(errorMsg)
+  // Error popup handled by interceptor; optionally use message locally
+  const errorMsg = e?.response?.data?.detail || 'Generation failed'
   } finally {
     loading.value = false
   }
@@ -153,7 +155,7 @@ async function generate() {
 async function genTests() {
   loadingTests.value = true
   try {
-    const res = await axios.post('/api/tests', { code: codeText.value })
+  const res = await http.post('/api/tests', { code: codeText.value })
     testsText.value = res.data.code
     activeTab.value = 'tests'
   } catch (e) {
@@ -166,7 +168,7 @@ async function genTests() {
 async function genDocs() {
   loadingDocs.value = true
   try {
-    const res = await axios.post('/api/docs', { code: codeText.value })
+  const res = await http.post('/api/docs', { code: codeText.value })
     codeText.value = res.data.code
     activeTab.value = 'code'
   } catch (e) {

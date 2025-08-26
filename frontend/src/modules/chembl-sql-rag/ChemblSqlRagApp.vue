@@ -68,10 +68,12 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
-import axios from 'axios'
+import http from '../../lib/http'
+import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
 
 const apiKeyStore = useApiKeyStore()
+const notify = useNotifyStore()
 const loading = ref(false)
 const question = ref('')
 const sql = ref('')
@@ -86,11 +88,12 @@ async function planSql() {
   sql.value = ''
   related.value = []
   try {
-    const res = await axios.post('/api/chembl/plan-sql', { prompt: question.value, api_key: apiKeyStore.apiKey })
+  const res = await http.post('/api/chembl/plan-sql', { prompt: question.value, api_key: apiKeyStore.apiKey })
     sql.value = res.data.sql
     related.value = res.data.related_tables || []
   } catch (e:any) {
-    sql.value = e?.response?.data?.detail || e?.message || 'Failed to plan SQL'
+    const msg = e?.response?.data?.detail || e?.message || 'Failed to plan SQL'
+    sql.value = msg
   } finally {
     loading.value = false
   }
@@ -101,13 +104,13 @@ async function execSql() {
   columns.value = []
   rows.value = []
   try {
-    const res = await axios.post('/api/chembl/execute-sql', { sql: sql.value, limit: limit.value })
+  const res = await http.post('/api/chembl/execute-sql', { sql: sql.value, limit: limit.value })
     columns.value = res.data.columns
     rows.value = res.data.rows
   } catch (e:any) {
     columns.value = []
     rows.value = []
-    sql.value = (sql.value ? sql.value + '\n\n' : '') + (e?.response?.data?.detail || e?.message || 'Failed to execute SQL')
+    const msg = e?.response?.data?.detail || e?.message || 'Failed to execute SQL'
   } finally {
     execLoading.value = false
   }

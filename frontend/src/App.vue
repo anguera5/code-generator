@@ -1,5 +1,6 @@
 <template>
   <v-app>
+  <GlobalNotifier />
   <v-navigation-drawer v-model="drawer" temporary class="app-drawer">
       <div class="drawer-header d-flex align-center py-3">
         <v-btn class="nav-trigger mr-2" icon variant="text" @click="drawer = false" :aria-label="'Close project drawer'">
@@ -79,6 +80,7 @@
 import { ref } from 'vue'
 import { modules } from './modules'
 import { useApiKeyStore } from './stores/apiKey'
+import GlobalNotifier from './components/GlobalNotifier.vue'
 const drawer = ref(false)
 const links = {
   linkedin: 'https://www.linkedin.com/in/albert-anguera-sempere/',
