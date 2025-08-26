@@ -1,0 +1,24 @@
+# Exclude giant ChEMBL database and data directories from build context
+app/chembl/**
+
+# Exclude vector DB and local indexes (mounted as a volume at runtime)
+app/chroma_db/**
+
+# Notebooks and large experimental data
+app/scripts/**
+
+# Python caches and local envs
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+.venv/
+
+# Logs and artifacts
+app.log
+*.log
+build/
+dist/
+*.egg-info/
+
+# Node artifacts (if any copied accidentally)
+node_modules/

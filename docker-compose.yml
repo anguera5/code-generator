@@ -1,26 +1,41 @@
-version: '0.0.1'
+networks:
+  app-net:
+    driver: bridge
+
 services:
   backend:
     build:
       context: ./backend
+      dockerfile: Dockerfile
     env_file:
       - ./backend/.env
+    environment:
+      # Point backend to the mounted DB inside the container
+      - CHEMBL_SQLITE_PATH=/app/app/chembl/chembl_35.db
+      # OPENAI_API_KEY loads from backend/.env
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
-    command: bash -lc "pip install -e . && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      # Large ChEMBL DB mounted from host (read-only). Must be an absolute host path.
+      - type: bind
+        source: ${CHEMBL_DB_HOST_PATH}
+        target: /app/app/chembl
+        read_only: true
+      # Persist Chroma vector store data on host (writable)
+      - type: bind
+        source: ${CHROMA_DB_HOST_DIR}
+        target: /app/app/chroma_db
+        read_only: false
+    networks:
+      - app-net
 
   frontend:
     build:
       context: ./frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/usr/src/app
+      dockerfile: Dockerfile
     environment:
       - VITE_API_BASE=/api
-    working_dir: /usr/src/app
-    command: npm run dev
-    depends_on:
-      - backend
+    ports:
+      - "5173:5173"
+    networks:
+      - app-net
