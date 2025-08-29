@@ -1,22 +1,96 @@
 <template>
-  <v-container class="py-6 animate-in" fluid>
-    <v-row class="mb-4" align="center" justify="space-between">
-      <v-col cols="12" md="6">
-        <h1>Code Generation</h1>
+  <v-container class="py-0 animate-in" fluid>
+    <!-- Hero (standalone, not a card) -->
+    <section class="cg-hero">
+      <div class="hero-bg">
+        <div class="blob b1" />
+        <div class="blob b2" />
+        <div class="grid-overlay" />
+      </div>
+      <div class="cg-hero-inner">
+        <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
+          <div class="flex-1">
+            <div class="eyebrow">Generator</div>
+            <h1 class="headline">Code Generation <span class="shimmer" /></h1>
+            <p class="op-80 mt-1">
+              Describe what you need and let the model craft clean, documented code. We call OpenAI’s
+              <strong>gpt-4.1-mini</strong> for code and use <strong>text-embedding-3-large</strong> for RAG in other modules.
+            </p>
+          </div>
+          <div class="toolbar d-flex ga-3 align-center flex-wrap">
+            <v-select
+              v-model="language"
+              :items="languages"
+              label="Language"
+              style="max-width: 220px; min-width: 160px;"
+              hide-details
+              density="comfortable"
+              variant="outlined"
+            />
+            <v-chip v-if="missingKey" color="warning" variant="tonal" class="pill">Enter API key (top bar)</v-chip>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="py-6"></div>
+    <!-- Knowledge cards: how it works, use-cases, tutorial -->
+  <v-row class="mt-6" align="stretch">
+      <v-col cols="12" md="4">
+        <v-card class="glass-panel hover-raise h-100">
+          <v-card-item>
+            <div class="d-flex align-center ga-2 mb-1">
+              <v-icon color="primary" icon="mdi-transit-connection-variant" />
+              <div class="text-subtitle-1 font-weight-600">How it works</div>
+            </div>
+            <ul class="mini-list op-80">
+              <li><span class="num-badge">1</span> You provide a prompt and pick a language.</li>
+              <li><span class="num-badge">2</span> The app sends your request to the backend with your API key.</li>
+              <li><span class="num-badge">3</span> Backend queries <strong>gpt-4.1-mini</strong> and returns code.</li>
+              <li><span class="num-badge">4</span> Optionally add docs/tests and copy or download.</li>
+            </ul>
+          </v-card-item>
+        </v-card>
       </v-col>
-      <v-col cols="12" md="6" class="text-right">
-        <v-select
-          v-model="language"
-          :items="languages"
-          label="Language"
-          style="max-width: 200px; min-width: 140px;"
-          hide-details
-          density="comfortable"
-          variant="outlined"
-        />
+      <v-col cols="12" md="4">
+        <v-card class="glass-panel hover-raise h-100">
+          <v-card-item>
+            <div class="d-flex align-center ga-2 mb-1">
+              <v-icon color="secondary" icon="mdi-lightbulb-on-outline" />
+              <div class="text-subtitle-1 font-weight-600">Great use-cases</div>
+            </div>
+            <div class="d-flex flex-wrap ga-2 pt-1">
+              <v-chip size="small" variant="tonal" color="primary">Utilities & helpers</v-chip>
+              <v-chip size="small" variant="tonal" color="secondary">API clients</v-chip>
+              <v-chip size="small" variant="tonal" color="primary">Boilerplate</v-chip>
+              <v-chip size="small" variant="tonal" color="secondary">Test skeletons</v-chip>
+              <v-chip size="small" variant="tonal" color="primary">Docstrings</v-chip>
+              <v-chip size="small" variant="tonal" color="secondary">Small scripts</v-chip>
+            </div>
+            <div class="op-70 mt-3 small">
+              Tip: be specific about inputs, outputs, and edge cases for best results.
+            </div>
+          </v-card-item>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="4">
+        <v-card class="glass-panel hover-raise h-100">
+          <v-card-item>
+            <div class="d-flex align-center ga-2 mb-1">
+              <v-icon color="primary" icon="mdi-play-circle-outline" />
+              <div class="text-subtitle-1 font-weight-600">Quick tutorial</div>
+            </div>
+            <ol class="mini-steps op-80">
+              <li>Choose a language.</li>
+              <li>Describe your goal (what, inputs, outputs).</li>
+              <li>Click <strong>Generate!</strong></li>
+              <li>Use <strong>Add Documentation</strong> and <strong>Add Unit Tests</strong> as needed.</li>
+              <li>Copy or download your code.</li>
+            </ol>
+          </v-card-item>
+        </v-card>
       </v-col>
     </v-row>
-
     <v-row>
       <v-col cols="12" md="6">
         <div class="glass-panel p-4 hover-raise" style="height: 100%">
@@ -53,6 +127,8 @@
         </div>
       </v-col>
     </v-row>
+
+
   </v-container>
 </template>
 
@@ -82,6 +158,7 @@ const languages = Object.keys(languageMap)
 const language = ref<Language>('python')
 const apiKeyStore = useApiKeyStore()
 const notify = useNotifyStore()
+const missingKey = computed(() => !apiKeyStore.apiKey)
 
 let outputLanguage = ''
 
@@ -206,6 +283,27 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.cg-hero { position: relative; overflow: hidden; padding: 36px 16px 0; }
+.cg-hero-inner { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 28px 8px 8px; }
+.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
+.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
+.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
+.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
+@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
+@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
+.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+.headline { position: relative; font-weight: 800; font-size: clamp(1.8rem, 4.6vw, 2.6rem); line-height: 1.1; }
+.headline .shimmer { position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12), rgba(255,255,255,0)); transform: translateX(-100%); animation: shimmer 5s infinite; pointer-events: none; }
+@keyframes shimmer { 0%{ transform: translateX(-100%) } 100%{ transform: translateX(100%) } }
+.eyebrow { letter-spacing: 1px; font-size: 0.75rem; text-transform: uppercase; opacity: 0.7; }
+.toolbar :deep(.v-field) { background: rgba(255,255,255,0.06); }
+.op-80 { opacity: .8; }
+.op-70 { opacity: .7; }
+.small { font-size: .85rem; }
+.pill { font-weight: 600; }
+.num-badge { display:inline-grid; place-items:center; width: 18px; height: 18px; border-radius: 50%; background: rgba(154,95,255,0.35); color: #fff; font-size: 0.72rem; margin-right: 6px; }
+.mini-list { list-style: none; padding-left: 0; }
+.mini-list li { margin: 6px 0; }
 .panel-actions { display: flex; gap: 8px; }
 @media (max-width: 600px) {
   .panel-actions { flex-direction: column; align-items: stretch; }
