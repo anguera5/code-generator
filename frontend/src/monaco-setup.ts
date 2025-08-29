@@ -17,6 +17,7 @@ import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
 // Basic languages contributions
 import 'monaco-editor/esm/vs/basic-languages/python/python.contribution'
 import 'monaco-editor/esm/vs/basic-languages/java/java.contribution'
+import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore

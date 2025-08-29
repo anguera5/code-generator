@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Any
 
 class GenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=0, max_length=8000)
@@ -49,7 +50,8 @@ class ChemblSqlPlanRequest(BaseModel):
 
 class ChemblSqlPlanResponse(BaseModel):
     sql: str
-    related_tables: list[str] | None = None
+    # Allow backend to return structured dictionaries for tables
+    related_tables: list[Any] | None = None
 
 
 class ChemblSqlExecuteRequest(BaseModel):

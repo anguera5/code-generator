@@ -1,6 +1,31 @@
 <template>
-  <v-container class="py-6" fluid>
-    <h1 class="mb-4">Food Packaging Forum RAG</h1>
+  <v-container class="py-0" fluid>
+    <!-- Hero (standalone) -->
+    <section class="cg-hero">
+      <div class="hero-bg">
+        <div class="blob b1" />
+        <div class="blob b2" />
+        <div class="grid-overlay" />
+      </div>
+      <div class="cg-hero-inner">
+        <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
+          <div class="flex-1">
+            <div class="eyebrow">Chatbot</div>
+            <h1 class="headline">Food Packaging Forum RAG <span class="shimmer" /></h1>
+            <p class="op-80 mt-1">
+              Ask questions about food packaging safety. Replies are grounded on FPF content using
+              <strong>text-embedding-3-large</strong> and generated with <strong>gpt-4.1-mini</strong>.
+            </p>
+          </div>
+          <div class="toolbar d-flex ga-3 align-center flex-wrap">
+            <v-chip v-if="!apiKeyStore.apiKey" color="warning" variant="tonal" class="pill">Enter API key (top bar)</v-chip>
+            <v-chip color="secondary" variant="tonal" class="pill">RAG-enabled</v-chip>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="py-6"></div>
     <v-card class="chat-shell mb-4" elevation="2">
       <div class="messages" ref="messagesEl">
         <div v-for="m in messages" :key="m.id" class="message" :class="m.role">
@@ -85,6 +110,22 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.cg-hero { position: relative; overflow: hidden; padding: 36px 16px 0; }
+.cg-hero-inner { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 28px 8px 8px; }
+.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
+.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
+.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
+.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
+@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
+@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
+.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+.headline { position: relative; font-weight: 800; font-size: clamp(1.8rem, 4.6vw, 2.6rem); line-height: 1.1; }
+.headline .shimmer { position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12), rgba(255,255,255,0)); transform: translateX(-100%); animation: shimmer 5s infinite; pointer-events: none; }
+@keyframes shimmer { 0%{ transform: translateX(-100%) } 100%{ transform: translateX(100%) } }
+.eyebrow { letter-spacing: 1px; font-size: 0.75rem; text-transform: uppercase; opacity: 0.7; }
+.toolbar :deep(.v-field) { background: rgba(255,255,255,0.06); }
+.op-80 { opacity: .8; }
+.pill { font-weight: 600; }
 .chat-shell { display:flex; flex-direction:column; max-width: 980px; margin: 0 auto; height:70vh; min-height:500px; }
 .messages { padding: 16px; overflow-y:auto; flex:1; }
 .message { margin-bottom: 14px; display:flex; }

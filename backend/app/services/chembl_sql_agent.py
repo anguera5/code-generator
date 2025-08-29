@@ -1,19 +1,81 @@
 from typing import List
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_chroma import Chroma
 from app.core.config import get_settings
 
 _settings = get_settings()
 
 
-def retrieve_related_tables(query: str, vector_store: str, k: int = 5) -> List[str]:
+def retrieve_related_table_texts(query: str, vector_store: str, k: int = 5) -> List[str]:
+    """Retrieve human-readable table descriptions from the vector store.
+    Prefer metadata.text; fallback to the document page_content.
+    """
     docs = vector_store.similarity_search(query, k=k)
     seen: List[str] = []
     for d in docs:
-        t = (d.metadata or {}).get("text")
+        t = (d.metadata or {}).get("text") or getattr(d, "page_content", None)
         if t and t not in seen:
             seen.append(t)
     return seen
+
+def to_structured_table_dict(text: str) -> dict:
+    """Parse a ChEMBL table description block into a structured dictionary
+    of the shape requested by the frontend, e.g.
+    {
+      'table': 'ACTION_TYPE',
+      'description': '...',
+      'columns': [
+         {'key': 'PK', 'name': 'ACTION_TYPE', 'type': 'VARCHAR2(50)', 'nullable': 'NOT NULL', 'comment': '...'},
+         ...
+      ]
+    }
+    """
+    import re
+
+    name = None
+    desc = None
+    columns: List[dict] = []
+
+    # Table name
+    m_name = re.search(r"Table:\s*([A-Za-z0-9_]+)", text, flags=re.IGNORECASE)
+    if m_name:
+        name = m_name.group(1).strip()
+
+    # Description (from 'Description:' up to 'Columns:' or end)
+    m_desc = re.search(r"Description:\s*([\s\S]*?)(?:\n\s*Columns:|$)", text, flags=re.IGNORECASE)
+    if m_desc:
+        desc = m_desc.group(1).strip()
+
+    # Columns section
+    m_cols = re.search(r"Columns:\s*([\s\S]*)", text, flags=re.IGNORECASE)
+    if m_cols:
+        lines = [l.strip() for l in m_cols.group(1).splitlines() if l.strip()]
+        for line in lines:
+            # - [PK,UK] COL (TYPE, NOT NULL) — comment
+            cm = re.match(r"^[-*]\s*(?:\[([^\]]+)\]\s*)?([A-Za-z0-9_]+)\s*\(([^)]*)\)\s*(?:—|-|:)\s*(.*)?$", line)
+            if not cm:
+                # try without trailing comment
+                cm = re.match(r"^[-*]\s*(?:\[([^\]]+)\]\s*)?([A-Za-z0-9_]+)\s*\(([^)]*)\)\s*$", line)
+            if cm:
+                keys_raw = (cm.group(1) or '').strip()
+                col_name = cm.group(2)
+                type_raw = (cm.group(3) or '').strip()
+                comment = (cm.group(4) or '').strip()
+                # Split out NOT NULL from type
+                nullable = 'NOT NULL' if re.search(r"NOT\s+NULL", type_raw, flags=re.IGNORECASE) else ''
+                # Remove NOT NULL and trailing commas from type
+                type_clean = re.sub(r"\bNOT\s+NULL\b", "", type_raw, flags=re.IGNORECASE).strip().strip(',')
+                columns.append({
+                    'key': keys_raw,
+                    'name': col_name,
+                    'type': type_clean,
+                    'nullable': nullable,
+                    'comment': comment,
+                })
+
+    return {
+        'table': name or '(unknown)',
+        'description': desc or '',
+        'columns': columns,
+    }
 
 SQL_PLANNER_SYSTEM_PROMPT = (
     "You are a SQL expert planner for the ChEMBL database.\n"
@@ -76,6 +138,11 @@ def synthesize_sql(prompt: str, related_tables: List[str], llm) -> str:
 
 def sql_answer_process(prompt, llm):
     enhanced_query = plan_query(prompt, llm.llm)
-    related_tables = retrieve_related_tables(enhanced_query, llm.vector_store_sql, k=5)
-    sql = synthesize_sql(enhanced_query, related_tables, llm.llm)
-    return sql, related_tables
+    related_texts = retrieve_related_table_texts(enhanced_query, llm.vector_store_sql, k=5)
+    # Build structured dicts for UI, but keep original texts for context
+    structured = [to_structured_table_dict(t) for t in related_texts]
+    print(structured)
+    # Provide both signals to LLM via readable text (original) and UI via JSON-serializable structs
+    sql = synthesize_sql(enhanced_query, related_texts, llm.llm)
+    # Return structured dicts (pydantic will serialize)
+    return sql, structured
