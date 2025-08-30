@@ -8,13 +8,10 @@ from app.models.schemas import (
     FpfRagRequest,
     FpfRagResponse,
     ChemblSqlPlanRequest,
-    ChemblSqlPlanResponse,
-    ChemblSqlExecuteRequest,
-    ChemblSqlExecuteResponse,
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
-from app.services.chembl_sql_exec import execute_sql
+from typing import Any
 
 router = APIRouter()
 settings = get_settings()
@@ -73,18 +70,27 @@ async def fpf_rag_chat(payload: FpfRagRequest):
     text = llm.generate_rag_response(payload.prompt, payload.api_key, payload.config_key)
     return FpfRagResponse(reply=text)
 
-@router.post("/chembl/plan-sql", response_model=ChemblSqlPlanResponse)
-async def chembl_plan_sql(payload: ChemblSqlPlanRequest):
-    sql, related_tables = llm.generate_sql_response(payload.prompt, payload.api_key)
-    return ChemblSqlPlanResponse(sql=sql, related_tables=related_tables)
+@router.post("/chembl/run", response_model=dict)
+async def chembl_run(payload: ChemblSqlPlanRequest):
+    """End-to-end run: plan → retrieve → synthesize → execute.
 
-
-@router.post("/chembl/execute-sql", response_model=ChemblSqlExecuteResponse)
-async def chembl_execute_sql(payload: ChemblSqlExecuteRequest):
+    Returns: { sql, related_tables, columns, rows, retries, repaired, no_context, not_chembl, chembl_reason }
+    """
     try:
-        print(payload.sql, payload.limit)
-        columns, rows = execute_sql(payload.sql, payload.limit)
-        return ChemblSqlExecuteResponse(columns=columns, rows=rows)
+        state: dict[str, Any] = llm.run_chembl_full(payload.prompt, limit=100, api_key=payload.api_key)
+        response = {
+            "sql": state.get("sql", ""),
+            "related_tables": state.get("structured_tables", []),
+            "columns": state.get("columns", []),
+            "rows": state.get("rows", []),
+            "retries": state.get("retries", 0),
+            "repaired": bool(state.get("retries", 0) > 0),
+            "no_context": bool(state.get("no_context", False)),
+            "not_chembl": bool(state.get("not_chembl", False)),
+            "chembl_reason": state.get("chembl_reason", ""),
+        }
+        print(response)
+        return response
     except ValueError as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e)) from e

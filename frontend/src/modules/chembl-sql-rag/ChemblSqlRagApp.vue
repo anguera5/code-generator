@@ -77,7 +77,7 @@
         <div class="s">Local SQLite snapshot for speed</div>
       </div>
     </div>
-    <v-card class="pa-4 mb-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
+  <v-card class="pa-4 mb-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
       <div class="d-flex justify-center">
         <div class="input-wrap">
           <v-textarea
@@ -89,55 +89,54 @@
             hide-details
             density="comfortable"
           />
+          <!-- Integrated prompt suggestions (compact, scrollable) -->
+          <div class="suggestions-row">
+            <button
+              v-for="ex in examples"
+              :key="ex.title"
+              type="button"
+              class="ex-suggestion"
+              @click="useExample(ex)"
+              :title="`Paste: ${ex.description}`"
+            >
+              <span class="ex-text">{{ ex.description }}</span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="d-flex justify-center ga-2 mt-3">
-        <v-btn variant="tonal" color="secondary" @click="showExamplesDialog = true">Examples</v-btn>
-        <v-btn color="primary" :loading="loading" :disabled="!apiKeyStore.apiKey || !question.trim()" @click="planSql">
-          Plan SQL
-        </v-btn>
-        <v-btn color="secondary" :disabled="!sql.trim()" :loading="execLoading" @click="execSql">
+  <v-btn color="primary" :loading="loading" :disabled="loading || !apiKeyStore.apiKey || !question.trim()" @click="runAll">
           Run
         </v-btn>
       </div>
     </v-card>
 
-    <!-- Examples Modal -->
-    <v-dialog v-model="showExamplesDialog" max-width="900">
-      <v-card>
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>Typical ChEMBL questions</span>
-          <v-btn icon="mdi-close" variant="text" @click="showExamplesDialog=false" />
-        </v-card-title>
-        <v-divider />
-        <v-card-text>
-          <div class="examples-grid">
-            <v-sheet
-              v-for="ex in examples"
-              :key="ex.title"
-              class="example-block"
-              rounded
-              border
-              :elevation="1"
-            >
-              <div class="ex-title">{{ ex.title }}</div>
-              <div class="ex-desc">{{ ex.description }}</div>
-              <div class="d-flex ga-2 mt-3">
-                <v-btn size="small" color="primary" variant="tonal" @click="useExample(ex, false)">Use</v-btn>
-                <v-btn size="small" color="primary" @click="useExample(ex, true)">Use & Plan</v-btn>
-              </div>
-            </v-sheet>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+  <!-- No-context dialog (elegant notice) -->
+  <v-dialog v-model="showNoContextDialog" max-width="640" scrim="rgba(12, 10, 25, 0.6)">
+    <v-card class="noctx-card rounded-lg" elevation="12" color="surface">
+      <div class="noctx-hero">
+        <div class="noctx-glow" />
+        <div class="noctx-title">
+          <v-icon icon="mdi-information-outline" size="26" class="mr-2" />
+          Not a ChEMBL question
+        </div>
+        <div class="noctx-sub">{{ chemblReason || 'We couldn’t find relevant ChEMBL tables for this prompt, so no SQL was generated.' }}</div>
+        <div class="justify-end mt-4">
+          <v-btn variant="tonal" color="primary" @click="showNoContextDialog = false">Close</v-btn>
+        </div>
+      </div>
+    </v-card>
+  </v-dialog>
 
-    <v-card v-if="sql || related.length" class="pa-4 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
-      <v-row class="ga-4" align="stretch">
-        <!-- SQL preview (full width) -->
-        <v-col cols="12" md="12">
+    <v-card v-if="(sql || related.length) && !noContext" class="pa-4 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
+      <v-row class="ga-2 no-wrap-sm" align="stretch">
+        <!-- SQL preview (left) -->
+        <v-col cols="12" sm="6" md="6" class="sql-panel">
           <div class="d-flex align-center justify-space-between mb-2">
-            <div class="text-subtitle-2">Proposed SQL</div>
+            <div class="text-subtitle-2 d-flex align-center ga-2">
+              <span>Proposed SQL</span>
+              <v-chip v-if="repaired" size="x-small" color="warning" variant="tonal" title="Query was repaired after an error">repaired</v-chip>
+            </div>
             <div>
               <v-btn size="small" variant="text" @click="copySql" :disabled="!sql">Copy</v-btn>
               <v-btn size="small" variant="text" @click="downloadSql" :disabled="!sql">Download</v-btn>
@@ -151,8 +150,8 @@
           </div>
         </v-col>
 
-        <!-- Related tables + schema details (stacked below) -->
-        <v-col cols="12" md="12" class="schema-panel">
+        <!-- Related tables + schema details (right) -->
+  <v-col cols="12" sm="6" md="6" class="schema-panel">
           <div class="text-subtitle-2 mb-2 d-flex align-center ga-2">
             <span>Related tables</span>
             <v-spacer />
@@ -204,10 +203,11 @@
       </v-row>
     </v-card>
 
-  <v-card v-if="rows.length" class="pa-4 mt-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
+  <v-card v-if="!noContext && rows.length" class="pa-4 mt-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
       <div class="d-flex align-center">
-        <div class="text-subtitle-2">Results ({{ rows.length }} rows)</div>
+        <div class="text-subtitle-2">Results ({{ filteredRows.length }} / {{ rows.length }} rows)</div>
         <v-spacer />
+        <v-btn size="small" variant="text" class="mr-2" @click="clearFilters" :disabled="!columnFilters.some(f=>f)">Clear filters</v-btn>
         <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details style="max-width: 120px" />
       </div>
       <v-divider class="my-2" />
@@ -217,9 +217,21 @@
             <tr>
               <th v-for="c in columns" :key="c">{{ c }}</th>
             </tr>
+            <tr>
+              <th v-for="(c, ci) in columns" :key="'f-'+ci">
+                <v-text-field
+                  v-model="columnFilters[ci]"
+                  density="compact"
+                  hide-details
+                  variant="underlined"
+                  placeholder="Search"
+                  class="mt-1"
+                />
+              </th>
+            </tr>
           </thead>
           <tbody>
-            <tr v-for="(r, idx) in rows" :key="idx">
+            <tr v-for="(r, idx) in filteredRows" :key="idx">
               <td v-for="(c, j) in r" :key="j">{{ c }}</td>
             </tr>
           </tbody>
@@ -231,7 +243,7 @@
 
 <script lang="ts" setup>
 import '../../monaco-setup'
-import { ref, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount, nextTick, computed } from 'vue'
 import * as monaco from 'monaco-editor'
 import http from '../../lib/http'
 import { useNotifyStore } from '../../stores/notify'
@@ -242,6 +254,7 @@ const notify = useNotifyStore()
 const loading = ref(false)
 const question = ref('')
 const showExamplesDialog = ref(false)
+const showNoContextDialog = ref(false)
 const examples = [
   { title: 'Top active compounds for a target', description: 'Top 10 compounds by activity against target CHEMBL203 (EGFR).', prompt: 'Top 10 compounds by potency (pChEMBL) against target CHEMBL203 (EGFR).' },
   { title: 'Assays with strong activity', description: 'Assays for DRD2 (CHEMBL240) with IC50 < 100 nM.', prompt: 'List assays for target CHEMBL240 (DRD2) with IC50 < 100 nM.' },
@@ -256,6 +269,12 @@ const execLoading = ref(false)
 const columns = ref<string[]>([])
 const rows = ref<any[][]>([])
 const limit = ref(100)
+const retries = ref(0)
+const repaired = ref(false)
+const noContext = ref(false)
+const chemblReason = ref('')
+// Per-column filters (aligned with columns by index)
+const columnFilters = ref<string[]>([])
 
 
 // Monaco editor for SQL preview
@@ -316,6 +335,7 @@ function ensureSqlEditor() {
       readOnly: true,
       automaticLayout: true,
       minimap: { enabled: false },
+  scrollBeyondLastLine: false,
       wordWrap: 'on',
     })
   }
@@ -336,6 +356,34 @@ onBeforeUnmount(() => {
   sqlEditor?.dispose()
   sqlModel?.dispose()
 })
+
+// Keep columnFilters aligned with columns
+watch(columns, (cols) => {
+  const next: string[] = new Array(cols.length).fill('')
+  for (let i = 0; i < Math.min(next.length, columnFilters.value.length); i++) {
+    next[i] = columnFilters.value[i] || ''
+  }
+  columnFilters.value = next
+})
+
+const filteredRows = computed(() => {
+  const filters = columnFilters.value
+  if (!filters.some(f => f && f.trim())) return rows.value
+  const norm = (v: any) => (v === null || v === undefined) ? '' : String(v)
+  return rows.value.filter(r => {
+    for (let i = 0; i < filters.length; i++) {
+      const f = (filters[i] || '').trim()
+      if (!f) continue
+      const cell = norm(r?.[i]).toLowerCase()
+      if (!cell.includes(f.toLowerCase())) return false
+    }
+    return true
+  })
+})
+
+function clearFilters() {
+  columnFilters.value = new Array(columns.value.length).fill('')
+}
 
 // Table cards derived from related_tables
 type TableCard = { name: string; description?: string; columns?: Array<{ name: string; type?: string; pk?: boolean; fk?: boolean; uk?: boolean; notnull?: boolean; default?: string | null; description?: string; keyRaw?: string; nullableRaw?: string }>; foreign_keys?: Array<{ from: string; table: string; to: string; on_delete?: string }>; raw?: string }
@@ -549,40 +597,48 @@ function parseRelatedTables(rt: any): TableCard[] {
   return cards
 }
 
-async function planSql() {
+async function runAll() {
   loading.value = true
+  execLoading.value = true
   sql.value = ''
   related.value = []
-  try {
-  const res = await http.post('/api/chembl/plan-sql', { prompt: question.value, api_key: apiKeyStore.apiKey })
-    sql.value = res.data.sql
-  console.info('[CHEMBL] plan response keys =', Object.keys(res.data || {}))
-  console.info('[CHEMBL] related_tables type =', Array.isArray(res.data?.related_tables) ? 'array' : typeof res.data?.related_tables)
-  related.value = res.data.related_tables ?? []
-  tableCards.value = parseRelatedTables(related.value)
-  console.info('[CHEMBL] tableCards count =', tableCards.value.length, 'names =', tableCards.value.map(t => t.name))
-  nextTick(() => { ensureSqlEditor(); revealDynamic() })
-  } catch (e:any) {
-    const msg = e?.response?.data?.detail || e?.message || 'Failed to plan SQL'
-    sql.value = msg
-  } finally {
-    loading.value = false
-  }
-}
-
-async function execSql() {
-  execLoading.value = true
   columns.value = []
   rows.value = []
   try {
-  const res = await http.post('/api/chembl/execute-sql', { sql: sql.value, limit: limit.value })
-    columns.value = res.data.columns
-    rows.value = res.data.rows
+    const res = await http.post('/api/chembl/run', { prompt: question.value, api_key: apiKeyStore.apiKey })
+  const isNoCtx = Boolean(res.data?.no_context || res.data?.not_chembl)
+  chemblReason.value = String(res.data?.chembl_reason || '')
+    noContext.value = isNoCtx
+    retries.value = Number(res.data?.retries || 0)
+    repaired.value = Boolean(res.data?.repaired || (retries.value > 0))
+
+    if (isNoCtx) {
+      // Elegantly inform user and avoid injecting any message into editor/results
+      showNoContextDialog.value = true
+  repaired.value = false
+  retries.value = 0
+      sql.value = ''
+      related.value = []
+      tableCards.value = []
+      columns.value = []
+      rows.value = []
+      nextTick(() => ensureSqlEditor())
+      return
+    }
+
+    // Normal flow
+    sql.value = res.data.sql || ''
+    related.value = res.data.related_tables || []
+    tableCards.value = parseRelatedTables(related.value)
+    columns.value = res.data.columns || []
+    rows.value = res.data.rows || []
+    nextTick(() => { ensureSqlEditor(); revealDynamic() })
   } catch (e:any) {
+    // Errors are globally notified by interceptor; keep state minimal
     columns.value = []
     rows.value = []
-    const msg = e?.response?.data?.detail || e?.message || 'Failed to execute SQL'
   } finally {
+    loading.value = false
     execLoading.value = false
   }
 }
@@ -617,7 +673,7 @@ function copySchema(t: TableCard) {
 function useExample(ex: { title: string; description: string; prompt: string }, autoPlan = false) {
   question.value = ex.prompt
   showExamplesDialog.value = false
-  if (autoPlan) planSql()
+  if (autoPlan) runAll()
 }
 
 // Simple scroll-reveal animations
@@ -670,6 +726,38 @@ function revealDynamic() {
 .schema-title.clickable { cursor: pointer; }
 .kv-list { display:flex; flex-direction:column; gap: 6px; }
 .kv-row { display:flex; align-items:center; gap: 8px; }
+
+/* Integrated prompt suggestions */
+.suggestions-row { display:flex; gap: 6px; overflow-x:auto; -webkit-overflow-scrolling: touch; padding: 4px 2px 0; scrollbar-width: thin; }
+.suggestions-row::-webkit-scrollbar { height: 8px; }
+.suggestions-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+.ex-suggestion {
+  appearance: none; border: 1px solid var(--border); outline: none; cursor: pointer; flex: 0 0 auto;
+  position: relative; overflow: hidden;
+  padding: 10px 12px; border-radius: 10px; color: #fff; font-weight: 600; font-size: .85rem; text-align: left;
+  min-width: 200px; height: 64px; display: inline-flex; align-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  box-shadow: 0 6px 16px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.06);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.ex-suggestion::before {
+  content: ""; position: absolute; inset: -20%; pointer-events: none; z-index: 0;
+  background: radial-gradient(120px 60px at var(--gx,20%) var(--gy,50%), rgba(143,108,255,.18), transparent 60%),
+              radial-gradient(120px 60px at calc(var(--gx,20%) + 40%) calc(var(--gy,50%) + 10%), rgba(56,214,238,.14), transparent 60%);
+  filter: blur(14px); opacity: .9;
+  animation: ex-glow 12s ease-in-out infinite;
+}
+.ex-suggestion:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); }
+.ex-suggestion:active { transform: translateY(0); box-shadow: 0 6px 16px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.16); }
+.ex-suggestion:focus-visible { outline: 2px solid rgba(143,108,255,.7); outline-offset: 2px; }
+.ex-text { position: relative; z-index: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-clamp: 2; }
+@keyframes ex-glow { 0% { --gx: 10%; --gy: 40%; } 50% { --gx: 80%; --gy: 60%; } 100% { --gx: 10%; --gy: 40%; } }
+@media (max-width: 700px) { .ex-suggestion { min-width: 160px; height: 56px; font-size: .8rem; } }
+.sql-panel, .schema-panel { min-width: 0; }
+.no-wrap-sm { flex-wrap: wrap; }
+@media (min-width: 600px) {
+  .no-wrap-sm { flex-wrap: nowrap; }
+}
 .kv-row .k { min-width: 160px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.85rem; }
 .kv-row .v { display:flex; flex-wrap: wrap; gap: 6px; }
 .tag { display:inline-block; background: rgba(56,214,238,0.12); border: 1px solid rgba(56,214,238,0.35); padding: 1px 6px; border-radius: 999px; font-size: 0.72rem; }
@@ -707,4 +795,14 @@ function revealDynamic() {
 .reveal.revealed { opacity: 1; transform: translateY(0); }
 /* Ensure dynamic schema chips/panels are visible even if reveal didn't trigger */
 .schema-scroll .reveal, .chip-list .reveal { opacity: 1 !important; transform: none !important; }
+
+/* No-context dialog styling */
+.noctx-card { border: 1px solid rgba(255,255,255,0.12); background: rgba(20, 18, 31, 0.98) !important; }
+.noctx-hero { position: relative; padding: 18px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); overflow: hidden; background: linear-gradient(180deg, rgba(143,108,255,0.10), rgba(56,214,238,0.04)); }
+.noctx-glow { position:absolute; inset:-20%; background:
+  radial-gradient(160px 90px at 20% 40%, rgba(143,108,255,.28), transparent 60%),
+  radial-gradient(180px 110px at 70% 60%, rgba(56,214,238,.20), transparent 60%);
+  filter: blur(22px); opacity: .9; animation: ex-glow 14s ease-in-out infinite; }
+.noctx-title { position: relative; font-weight: 800; font-size: 1.1rem; display:flex; align-items:center; letter-spacing: .2px; }
+.noctx-sub { position: relative; opacity: .9; margin-top: 6px; font-size: .92rem; }
 </style>

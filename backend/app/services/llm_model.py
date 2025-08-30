@@ -11,7 +11,7 @@ from app.core.prompts import (
     generate_code_review_template,
 )
 from app.services.rag_model import build_langgraph, rag_answer_process
-from app.services.chembl_sql_agent import sql_answer_process
+from app.services.chembl_sql_pipeline import ChemblSqlPipeline
 import logging
 
 _settings = get_settings()
@@ -27,15 +27,18 @@ class LLMModel:
         self.vector_store_website = None
         self.vector_store_sql = None
         self.rag_chain = None
+        self.chembl_pipeline = None
 
     def check_model_running(self, api_key: str):
         # Re-initialize LLM if API key changed
         if not self.api_key and api_key not in [None, '', self.api_key]:
             self.api_key = api_key
+            # Add request-level timeout to avoid long hanging LLM calls
             self.llm = ChatOpenAI(
                 model=self.model,
                 temperature=self.temperature,
                 openai_api_key=api_key,
+                timeout=55,  # seconds (shorter than typical reverse proxy timeouts)
             )
             self.embeddings = OpenAIEmbeddings(model=_settings.openai_embedding_model, api_key=api_key)
             self.vector_store_website = Chroma(
@@ -99,10 +102,12 @@ class LLMModel:
     def initialize_chain(self):
         self.rag_chain = build_langgraph(self.llm, self.vector_store_website)
         return
-    
-    def generate_sql_response(self, prompt, api_key):
+
+    def run_chembl_full(self, prompt: str, limit: int, api_key: str):
         self.check_model_running(api_key)
-        return sql_answer_process(prompt, self)
+        if not self.chembl_pipeline:
+            self.chembl_pipeline = ChemblSqlPipeline(self.llm, self.vector_store_sql)
+        return self.chembl_pipeline.run_all(prompt, limit)
 
     # ---------------------- Helpers ----------------------
     def strip_markdown_fences(self, text: str) -> str:
