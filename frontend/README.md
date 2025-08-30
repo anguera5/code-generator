@@ -49,3 +49,10 @@ That's it—hot reload will expose the new module.
 * Breadcrumb & search across modules.
 
 Happy hacking!
+## Timeouts
+- The frontend HTTP client defaults to no timeout. To set a custom timeout (ms), export `VITE_HTTP_TIMEOUT`:
+
+```bash
+export VITE_HTTP_TIMEOUT=60000
+npm run dev
+```

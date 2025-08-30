@@ -2,10 +2,11 @@ import axios, { AxiosError } from 'axios'
 import { useNotifyStore } from '../stores/notify'
 
 // Create a singleton axios instance
-export const http = axios.create({
-  // Let Vite proxy /api to backend; baseURL left empty so relative URLs work
-  timeout: 60_000,
-})
+// Let Vite proxy /api to backend; baseURL left empty so relative URLs work
+// Default to no timeout (0). You can override via VITE_HTTP_TIMEOUT (ms)
+const parsed = Number((import.meta as any).env?.VITE_HTTP_TIMEOUT)
+const timeout = Number.isFinite(parsed) ? parsed : 0
+export const http = axios.create({ timeout })
 
 // Helper to safely access store outside of setup by importing on demand
 function notifyError(message: string) {
