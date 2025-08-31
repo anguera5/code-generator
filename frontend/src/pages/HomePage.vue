@@ -1,34 +1,32 @@
 <template>
   <div class="landing">
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="hero-bg">
-        <div class="blob b1" />
-        <div class="blob b2" />
-        <div class="grid-overlay" />
-      </div>
+    <!-- Header Section (no per-page background) -->
+    <section class="hero header-intro">
       <v-container class="hero-content">
-        <div class="eyebrow">AI Playground</div>
-        <h1 class="headline">
-          GenAI Portfolio
-          <span class="shimmer" />
-        </h1>
-        <p class="subhead">
-          <span class="typed">{{ typedText }}</span>
-          <span class="cursor" :class="{ off: !cursorOn }">|</span>
-        </p>
+        <PageTitle>
+          <div>
+            <div class="eyebrow">AI Playground</div>
+            <h1 class="headline">
+              GenAI Portfolio
+              <span class="shimmer" />
+            </h1>
+            <p class="subhead mt-2">
+              <span class="typed">{{ typedText }}</span>
+              <span class="cursor" :class="{ off: !cursorOn }">|</span>
+            </p>
+            <div class="cta d-flex ga-3 flex-wrap mt-2">
+              <v-btn color="primary" size="large" @click="scrollTo('#modules')">
+                Explore modules
+                <v-icon class="ml-2" icon="mdi-arrow-right" />
+              </v-btn>
+              <v-btn size="large" variant="tonal" @click="focusKey = true">
+                Enter API key
+              </v-btn>
+            </div>
+          </div>
+        </PageTitle>
 
-        <div class="cta d-flex ga-3 flex-wrap">
-          <v-btn color="primary" size="large" @click="scrollTo('#modules')">
-            Explore modules
-            <v-icon class="ml-2" icon="mdi-arrow-right" />
-          </v-btn>
-          <v-btn size="large" variant="tonal" @click="focusKey = true">
-            Enter API key
-          </v-btn>
-        </div>
-
-        <v-expand-transition>
+  <v-expand-transition>
           <div v-show="focusKey" class="key-panel glass mt-4">
             <v-text-field
               v-model="apiKeyStore.apiKey"
@@ -49,7 +47,7 @@
     </section>
 
     <!-- Integration + Trust Section -->
-    <section class="integrations">
+  <section class="integrations mt-4">
       <v-container>
         <v-row align="stretch">
           <v-col cols="12" md="6" class="d-flex">
@@ -92,7 +90,7 @@
     </section>
 
     <!-- Modules Section -->
-    <section id="modules" class="modules">
+  <section id="modules" class="modules mt-2">
       <v-container>
         <h2 class="text-h5 mb-4">Available modules</h2>
         <v-row align="stretch">
@@ -126,6 +124,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { modules } from '../modules'
 import { useApiKeyStore } from '../stores/apiKey'
+import PageTitle from '../components/PageTitle.vue'
 
 const apiKeyStore = useApiKeyStore()
 const focusKey = ref(false)
@@ -214,9 +213,9 @@ function cardThumb(m: { title: string }) {
 .hover-raise { transition: transform .2s ease, box-shadow .2s ease; }
 .hover-raise:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(0,0,0,.45); }
 
-/* Hero */
-.hero { position: relative; overflow: hidden; padding: 84px 0 40px; }
-.hero .hero-content { position: relative; z-index: 2; max-width: 980px; margin: 0 auto; }
+/* Header */
+.hero.header-intro { position: relative; padding: 96px 0 48px; }
+.hero .hero-content { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; }
 .eyebrow { letter-spacing: 1px; font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; margin-bottom: 8px; }
 .headline { font-size: clamp(2.0rem, 6vw, 3.2rem); font-weight: 800; line-height: 1.05; position: relative; }
 .headline .shimmer { position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12), rgba(255,255,255,0)); transform: translateX(-100%); animation: shimmer 5s infinite; pointer-events: none; }
@@ -230,13 +229,7 @@ function cardThumb(m: { title: string }) {
 .key-panel { padding: 12px; border-radius: 12px; }
 .tiny-note { font-size: .75rem; opacity: .75; margin-top: 6px; }
 
-.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
-.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
-.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
-.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
-@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
-@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
-.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+/* per-page hero visuals removed in favor of global background */
 
 /* Sections */
 .integrations { padding: 20px 0; }

@@ -1,58 +1,52 @@
 <template>
   <v-container class="py-0" fluid>
-    <!-- Hero (standalone) -->
-    <section class="cg-hero">
-      <div class="hero-bg">
-        <div class="blob b1" />
-        <div class="blob b2" />
-        <div class="grid-overlay" />
-      </div>
-      <div class="cg-hero-inner">
-        <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
-          <div class="flex-1">
-            <div class="eyebrow">RAG + SQL</div>
-            <h1 class="headline">ChEMBL SQL RAG <span class="shimmer" /></h1>
-            <p class="op-80 mt-1">
-              Plan SQL queries against the local ChEMBL snapshot using natural language. We embed context with
-              <strong>text-embedding-3-large</strong> and generate SQL with <strong>gpt-4.1-mini</strong>.
-            </p>
+          <div class="section-intro">
+            <PageTitle>
+              <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
+                <div class="flex-1">
+                  <div class="eyebrow">RAG + SQL</div>
+                  <h1 class="headline">ChEMBL SQL RAG <span class="shimmer" /></h1>
+                  <p class="op-80 mt-1">
+                    Plan SQL queries against the local ChEMBL snapshot using natural language. We embed context with
+                    <strong>text-embedding-3-large</strong> and generate SQL with <strong>gpt-4.1-mini</strong>.
+                  </p>
+                  <!-- Flow diagram moved into title block -->
+                  <div class="flow-strip mt-4" ref="flowEl">
+                    <div class="step reveal">
+                      <v-icon icon="mdi-comment-question-outline" size="26" />
+                      <div class="label">Question</div>
+                    </div>
+                    <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    <div class="step reveal">
+                      <v-icon icon="mdi-brain" size="26" />
+                      <div class="label">LLM plan</div>
+                    </div>
+                    <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    <div class="step reveal">
+                      <v-icon icon="mdi-code-tags" size="26" />
+                      <div class="label">SQL</div>
+                    </div>
+                    <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    <div class="step reveal">
+                      <v-icon icon="mdi-database" size="26" />
+                      <div class="label">SQLite</div>
+                    </div>
+                    <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    <div class="step reveal">
+                      <v-icon icon="mdi-table" size="26" />
+                      <div class="label">Results</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="toolbar d-flex ga-3 align-center flex-wrap">
+                  <v-chip v-if="!apiKeyStore.apiKey" color="warning" variant="tonal" class="pill">Enter API key (top bar)</v-chip>
+                  <v-chip color="secondary" variant="tonal" class="pill">Local SQLite</v-chip>
+                </div>
+              </div>
+            </PageTitle>
           </div>
-          <div class="toolbar d-flex ga-3 align-center flex-wrap">
-            <v-chip v-if="!apiKeyStore.apiKey" color="warning" variant="tonal" class="pill">Enter API key (top bar)</v-chip>
-            <v-chip color="secondary" variant="tonal" class="pill">Local SQLite</v-chip>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <div class="py-6"></div>
-    <!-- Flow diagram for first impression -->
-    <div class="flow-strip" ref="flowEl">
-      <div class="step reveal">
-        <v-icon icon="mdi-comment-question-outline" size="26" />
-        <div class="label">Question</div>
-      </div>
-      <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
-      <div class="step reveal">
-        <v-icon icon="mdi-brain" size="26" />
-        <div class="label">LLM plan</div>
-      </div>
-      <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
-      <div class="step reveal">
-        <v-icon icon="mdi-code-tags" size="26" />
-        <div class="label">SQL</div>
-      </div>
-      <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
-      <div class="step reveal">
-        <v-icon icon="mdi-database" size="26" />
-        <div class="label">SQLite</div>
-      </div>
-      <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
-      <div class="step reveal">
-        <v-icon icon="mdi-table" size="26" />
-        <div class="label">Results</div>
-      </div>
-    </div>
+    <div class="py-4"></div>
 
     <!-- Feature strip for first impression -->
     <div class="feature-strip">
@@ -77,7 +71,7 @@
         <div class="s">Local SQLite snapshot for speed</div>
       </div>
     </div>
-  <v-card class="pa-4 mb-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
+  <v-card class="pa-4 mb-6 glass-panel hover-raise mx-auto mt-4" elevation="2" max-width="1200">
       <div class="d-flex justify-center">
         <div class="input-wrap">
           <v-textarea
@@ -248,6 +242,7 @@ import * as monaco from 'monaco-editor'
 import http from '../../lib/http'
 import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
+import PageTitle from '../../components/PageTitle.vue'
 
 const apiKeyStore = useApiKeyStore()
 const notify = useNotifyStore()
@@ -694,15 +689,27 @@ function revealDynamic() {
 </script>
 
 <style scoped>
-.cg-hero { position: relative; overflow: hidden; padding: 36px 16px 0; }
-.cg-hero-inner { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 28px 8px 8px; }
-.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
-.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
-.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
-.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
-@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
-@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
-.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+  .section-intro { position: relative; padding: 48px 16px 8px; max-width: 1200px; margin: 0 auto; }
+  .flow-strip { display:flex; align-items:center; justify-content:center; gap:12px; padding: 16px 0; opacity:.9; }
+  .feature-strip { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:16px; padding: 10px 0 18px; opacity:.9; }
+  .feature { display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(148,163,184,0.18); padding: 8px 12px; border-radius: 12px; }
+  .feature .t { font-weight:600; }
+  .feature .s { font-size: .8rem; opacity: .7; }
+  .headline { position: relative; font-weight: 800; font-size: clamp(1.8rem, 4.6vw, 2.6rem); line-height: 1.1; }
+  .headline .shimmer { position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12), rgba(255,255,255,0)); transform: translateX(-100%); animation: shimmer 5s infinite; pointer-events: none; }
+  @keyframes shimmer { 0%{ transform: translateX(-100%) } 100%{ transform: translateX(100%) } }
+  .eyebrow { letter-spacing: 1px; font-size: 0.75rem; text-transform: uppercase; opacity: 0.7; }
+  .toolbar :deep(.v-field) { background: rgba(255,255,255,0.06); }
+  .op-80 { opacity: .8; }
+  .pill { font-weight: 600; }
+  .result-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; white-space: pre-wrap; min-height: 48px; }
+  .result-box.sql { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .chip-list { display:flex; flex-wrap: wrap; align-items: flex-start; }
+  .table-wrapper { overflow:auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+  .result-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .result-table th, .result-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
+  .result-table thead th { position: sticky; top: 0; background: rgba(255,255,255,0.06); text-align: left; }
+  /* removed per-page hero background in favor of global */
 .headline { position: relative; font-weight: 800; font-size: clamp(1.8rem, 4.6vw, 2.6rem); line-height: 1.1; }
 .headline .shimmer { position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12), rgba(255,255,255,0)); transform: translateX(-100%); animation: shimmer 5s infinite; pointer-events: none; }
 @keyframes shimmer { 0%{ transform: translateX(-100%) } 100%{ transform: translateX(100%) } }

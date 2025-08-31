@@ -1,7 +1,8 @@
 <template>
   <v-app>
-  <GlobalNotifier />
-  <v-navigation-drawer v-model="drawer" temporary class="app-drawer">
+    <GlobalNotifier />
+    <HeroBackdrop />
+    <v-navigation-drawer v-model="drawer" temporary class="app-drawer">
       <div class="drawer-header d-flex align-center py-3">
         <v-btn class="nav-trigger mr-2" icon variant="text" @click="drawer = false" :aria-label="'Close project drawer'">
           <v-img src="/src/assets/favicon.png" width="26" height="26" alt="Close drawer" />
@@ -81,6 +82,7 @@ import { ref } from 'vue'
 import { modules } from './modules'
 import { useApiKeyStore } from './stores/apiKey'
 import GlobalNotifier from './components/GlobalNotifier.vue'
+import HeroBackdrop from './components/HeroBackdrop.vue'
 const drawer = ref(false)
 const links = {
   linkedin: 'https://www.linkedin.com/in/albert-anguera-sempere/',
@@ -124,6 +126,9 @@ html, body, #app { height: 100%; }
 
 /* Ensure landing page text is white by default */
 body, .v-main, .v-container, .v-card, .v-alert, p, h2, h3, h4, h5, h6 { color: #e2e8f0; }
+
+/* Ensure content sits above the global background */
+.v-main { position: relative; z-index: 1; }
 
 .api-key-field input { font-size: 0.75rem; letter-spacing: 0.5px; }
 

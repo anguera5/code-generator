@@ -1,13 +1,7 @@
 <template>
   <v-container class="py-0 animate-in" fluid>
-    <!-- Hero (standalone, not a card) -->
-    <section class="cg-hero">
-      <div class="hero-bg">
-        <div class="blob b1" />
-        <div class="blob b2" />
-        <div class="grid-overlay" />
-      </div>
-      <div class="cg-hero-inner">
+    <div class="section-intro">
+      <PageTitle>
         <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
           <div class="flex-1">
             <div class="eyebrow">Generator</div>
@@ -30,10 +24,10 @@
             <v-chip v-if="missingKey" color="warning" variant="tonal" class="pill">Enter API key (top bar)</v-chip>
           </div>
         </div>
-      </div>
-    </section>
+      </PageTitle>
+    </div>
 
-    <div class="py-6"></div>
+  <div class="py-6"></div>
     <!-- Knowledge cards: how it works, use-cases, tutorial -->
   <v-row class="mt-6" align="stretch">
       <v-col cols="12" md="4">
@@ -93,7 +87,7 @@
     </v-row>
     <v-row>
       <v-col cols="12" md="6">
-        <div class="glass-panel p-4 hover-raise" style="height: 100%">
+        <div class="glass-panel p-4 hover-raise mt-4" style="height: 100%">
           <v-textarea
             v-model="prompt"
             label="Describe what to generate"
@@ -139,6 +133,7 @@ import * as monaco from 'monaco-editor'
 import http from '../../lib/http'
 import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
+import PageTitle from '../../components/PageTitle.vue'
 
 const prompt = ref('')
 const codeText = ref('')
@@ -283,15 +278,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.cg-hero { position: relative; overflow: hidden; padding: 36px 16px 0; }
-.cg-hero-inner { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 28px 8px 8px; }
-.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
-.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
-.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
-.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
-@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
-@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
-.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+.section-intro { position: relative; padding: 48px 16px 8px; max-width: 1200px; margin: 0 auto; }
 .headline { position: relative; font-weight: 800; font-size: clamp(1.8rem, 4.6vw, 2.6rem); line-height: 1.1; }
 .headline .shimmer { position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.12), rgba(255,255,255,0)); transform: translateX(-100%); animation: shimmer 5s infinite; pointer-events: none; }
 @keyframes shimmer { 0%{ transform: translateX(-100%) } 100%{ transform: translateX(100%) } }

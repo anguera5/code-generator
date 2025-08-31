@@ -1,46 +1,47 @@
 <template>
   <div class="about">
     <!-- Hero -->
-    <section class="hero">
-      <div class="hero-bg">
-        <div class="blob b1" />
-        <div class="blob b2" />
-        <div class="grid-overlay" />
-      </div>
+    <section class="hero header-intro">
       <v-container class="hero-inner">
         <v-row align="center" class="ga-4">
-          <v-col cols="12" md="4" class="d-flex justify-center">
-            <div class="avatar-wrap">
-              <div class="ring" />
-              <v-img src="/src/assets/avatar.png" alt="Albert Anguera" width="200" height="200" cover class="avatar" position="50% 10%"/>
-            </div>
-          </v-col>
-          <v-col cols="12" md="8">
-            <div class="eyebrow">About</div>
-            <h1 class="headline">Albert Anguera Sempere</h1>
-            <div class="role">Data Scientist · Food Packaging Forum</div>
-            <div class="chips d-flex ga-2 mt-3 flex-wrap">
-              <v-chip size="small" color="primary" variant="tonal">Physics</v-chip>
-              <v-chip size="small" color="secondary" variant="tonal">Chemistry</v-chip>
-              <v-chip size="small" color="primary" variant="tonal">Informatics</v-chip>
-              <v-chip size="small" color="secondary" variant="tonal">ML & RAG</v-chip>
-              <v-chip size="small" color="primary" variant="tonal">Data Platforms</v-chip>
-            </div>
-            <div class="mt-4 op-85">
-              I’m building this GenAI portfolio as part of Codecademy’s AI Bootcamp — a hands-on space to explore
-              practical patterns like retrieval, code generation, and intelligent data interfaces.
-            </div>
-            <div class="links d-flex ga-2 mt-4">
-              <v-btn :href="links.linkedin" target="_blank" rel="noopener" prepend-icon="mdi-linkedin" variant="tonal">LinkedIn</v-btn>
-              <v-btn :href="links.github" target="_blank" rel="noopener" prepend-icon="mdi-github" variant="tonal">GitHub</v-btn>
-            </div>
+          <v-col cols="12">
+            <PageTitle>
+              <div class="d-flex flex-column flex-md-row align-center ga-6">
+                <div class="d-flex justify-center">
+                  <div class="avatar-wrap">
+                    <div class="ring" />
+                    <v-img src="/src/assets/avatar.png" alt="Albert Anguera" width="200" height="200" cover class="avatar" position="50% 10%"/>
+                  </div>
+                </div>
+                <div class="flex-1">
+                  <div class="eyebrow">About</div>
+                  <h1 class="headline">Albert Anguera Sempere</h1>
+                  <div class="role mt-1">Data Scientist · Food Packaging Forum</div>
+                  <div class="chips d-flex ga-2 mt-3 flex-wrap">
+                    <v-chip size="small" color="primary" variant="tonal">Physics</v-chip>
+                    <v-chip size="small" color="secondary" variant="tonal">Chemistry</v-chip>
+                    <v-chip size="small" color="primary" variant="tonal">Informatics</v-chip>
+                    <v-chip size="small" color="secondary" variant="tonal">ML & RAG</v-chip>
+                    <v-chip size="small" color="primary" variant="tonal">Data Platforms</v-chip>
+                  </div>
+                  <div class="mt-4 op-85">
+                    I’m building this GenAI portfolio as part of Codecademy’s AI Bootcamp — a hands-on space to explore
+                    practical patterns like retrieval, code generation, and intelligent data interfaces.
+                  </div>
+                  <div class="links d-flex ga-2 mt-4">
+                    <v-btn :href="links.linkedin" target="_blank" rel="noopener" prepend-icon="mdi-linkedin" variant="tonal">LinkedIn</v-btn>
+                    <v-btn :href="links.github" target="_blank" rel="noopener" prepend-icon="mdi-github" variant="tonal">GitHub</v-btn>
+                  </div>
+                </div>
+              </div>
+            </PageTitle>
           </v-col>
         </v-row>
       </v-container>
     </section>
 
     <!-- Sections -->
-    <section class="sections">
+  <section class="sections mt-4">
       <v-container>
         <v-row>
           <!-- Who I am -->
@@ -149,6 +150,8 @@
 </template>
 
 <script setup lang="ts">
+import PageTitle from '../../components/PageTitle.vue'
+
 const links = {
   linkedin: 'https://www.linkedin.com/in/albert-anguera-sempere/',
   github: 'https://github.com/anguera5'
@@ -162,9 +165,9 @@ const links = {
 .hover-raise { transition: transform .2s ease, box-shadow .2s ease; }
 .hover-raise:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(0,0,0,.45); }
 
-/* Hero */
-.hero { position: relative; overflow: hidden; padding: 64px 0 24px; }
-.hero-inner { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; }
+/* Header */
+.hero.header-intro { position: relative; padding: 80px 0 32px; }
+.hero-inner { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; }
 .eyebrow { letter-spacing: 1px; font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; margin-bottom: 6px; }
 .headline { font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 800; line-height: 1.05; }
 .role { opacity: 0.85; margin-top: 2px; }
@@ -173,13 +176,7 @@ const links = {
 .ring { position: absolute; width: 210px; height: 210px; border-radius: 50%; background: conic-gradient(from 0deg, #9a5fff, #38d6ee, #9a5fff); filter: blur(10px); opacity: .55; animation: spin 12s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg) } }
 
-.hero-bg { position:absolute; inset:0; z-index:1; overflow:hidden; }
-.blob { position:absolute; filter: blur(48px); opacity:.55; border-radius: 50%; mix-blend-mode: screen; }
-.b1 { width: 520px; height: 520px; background: radial-gradient(circle at 30% 30%, #9a5fff55, transparent 60%); top: -120px; left: -120px; animation: float1 14s ease-in-out infinite; }
-.b2 { width: 560px; height: 560px; background: radial-gradient(circle at 70% 70%, #38d6ee55, transparent 60%); bottom: -160px; right: -160px; animation: float2 18s ease-in-out infinite; }
-@keyframes float1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(20px,16px) } }
-@keyframes float2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-24px,-18px) } }
-.grid-overlay { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%); opacity:.45; }
+/* per-page hero visuals removed in favor of global background */
 
 /* Sections */
 .sections { padding: 16px 0 40px; }
