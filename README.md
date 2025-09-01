@@ -165,8 +165,3 @@ Frontend (local):
 
 1. Create `src/modules/<your-module>/` with a root `<YourModuleApp>.vue`.
 2. Register a lazy route in `src/router.ts` and metadata in `src/modules/index.ts`.
-
-## Notes
-
-- The app saves ChEMBL sessions by `memory_id` to support edits and quick LIMIT re‑execution.
-- If you deploy behind a reverse proxy, align proxy read timeouts with your chosen server/client timeouts or use an async job API for very long queries.
