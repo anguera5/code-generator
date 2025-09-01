@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, Form, Query
+from fastapi import APIRouter, Request, HTTPException, Form, Query, BackgroundTasks
 from app.models.schemas import (
     GenerateRequest,
     GenerateResponse,
@@ -43,7 +43,7 @@ async def generate_docs(payload: BasicRequest):
 
 
 @router.post("/code-review/webhook", response_model=CodeReviewResponse)
-async def code_review_webhook(request: Request, payload: str | None = Form(None), payload_q: str | None = Query(None)):
+async def code_review_webhook(request: Request, payload: str | None = Form(None), payload_q: str | None = Query(None), background_tasks: BackgroundTasks | None = None):
     """Accept a pull request webhook payload and return an LLM review.
 
     Supports:
@@ -83,8 +83,23 @@ async def code_review_webhook(request: Request, payload: str | None = Form(None)
     if (repository or base_branch or head_branch or diff_url)
     else "(no diff metadata provided)"
     )
-    review_text = llm.generate_code_review(title, body, diff_summary)
-    return CodeReviewResponse(review=review_text)
+    # Run the LLM review in the background to avoid webhook timeouts
+    def _run_async_review(t: str, b: str, ds: str) -> None:
+        try:
+            txt = llm.generate_code_review(t, b, ds)
+            print("[CODE-REVIEW] Generated review for:", t)
+            print(txt)
+        except Exception as ex:
+            print("[CODE-REVIEW] Review generation failed:", ex)
+
+    if background_tasks is not None:
+        background_tasks.add_task(_run_async_review, title, body, diff_summary)
+
+    ack = (
+        f"Received webhook for PR: {title}. Base: {base_branch or '-'} -> Head: {head_branch or '-'}"
+        + (" (diff queued)" if diff_url else "")
+    )
+    return CodeReviewResponse(review=ack)
 
 @router.post("/fpf-rag/chat", response_model=FpfRagResponse)
 async def fpf_rag_chat(payload: FpfRagRequest):

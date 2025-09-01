@@ -9,7 +9,11 @@ export default defineConfig({
     allowedHosts: ['genai-code-generator.duckdns.org'],
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+  // Allow overriding the backend origin in local dev without changing docker-compose.
+  // Usage examples:
+  //  - Create frontend/.env.local with VITE_BACKEND_ORIGIN=http://localhost:8000
+  //  - Keep default (backend:8000) when running inside Docker Compose
+  target: process.env.VITE_BACKEND_ORIGIN || 'http://backend:8000',
         changeOrigin: true,
       },
     },
