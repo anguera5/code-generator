@@ -4,6 +4,7 @@ This frontend now supports hosting multiple self-contained mini-app modules ("pr
 
 Current modules:
 1. Code Generator (`/code-generator`): Generate code, tests, and docs via LLM backend.
+2. ChEMBL SQL RAG (`/chembl-sql-rag`): Plan → synthesize → execute SQLite queries against a local ChEMBL snapshot, with sessioned edits and LIMIT re-execution.
 
 ## Dev
 1. `npm ci`
@@ -43,6 +44,12 @@ That's it—hot reload will expose the new module.
 * Avoid tight coupling: modules should not import each other's internals directly.
 * If you need global state, introduce Pinia stores under `src/stores/` (already dependency-installed).
 
+### ChEMBL SQL RAG UX
+- Results-first layout with scrollable table
+- Per-column filters; CSV export
+- “Technical details” modal (SQL with Monaco, schema, optimization notes)
+- Debounced re-execute when changing LIMIT (uses session `memory_id` to avoid regenerating SQL)
+
 ## Future Ideas
 * Dynamic auto-discovery of modules (Vite `import.meta.glob`).
 * Per-module settings dialog.
@@ -50,9 +57,11 @@ That's it—hot reload will expose the new module.
 
 Happy hacking!
 ## Timeouts
-- The frontend HTTP client defaults to no timeout. To set a custom timeout (ms), export `VITE_HTTP_TIMEOUT`:
+- The frontend HTTP client defaults to 300000 ms (5 minutes). To change or disable:
 
 ```bash
-export VITE_HTTP_TIMEOUT=60000
+export VITE_HTTP_TIMEOUT=60000   # 60s
 npm run dev
 ```
+
+Set to `0` to disable the client timeout entirely (browser will wait indefinitely).
