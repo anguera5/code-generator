@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, HTTPException, Form, Query
 from app.models.schemas import (
     GenerateRequest,
     GenerateResponse,
@@ -43,23 +43,40 @@ async def generate_docs(payload: BasicRequest):
 
 
 @router.post("/code-review/webhook", response_model=CodeReviewResponse)
-async def code_review_webhook(payload: dict):
-    """Accept a generic pull request webhook payload (GitHub-style) and return an LLM review.
+async def code_review_webhook(request: Request, payload: str | None = Form(None), payload_q: str | None = Query(None)):
+    """Accept a pull request webhook payload and return an LLM review.
 
-    Expected minimal shape:
-    {
-        "action": "opened",
-        "pull_request": {"title": str, "body": str, "base": {"ref": str}, "head": {"ref": str}, "diff_url": str},
-        "repository": {"full_name": str}
-    }
+    Supports:
+    - application/json body (standard GitHub webhook)
+    - application/x-www-form-urlencoded with a single field 'payload' containing JSON (some proxies)
     """
-    pr = payload.get("pull_request") or {}
+    payload_obj: dict | None = None
+    # Prefer explicit form/query 'payload' fields if present
+    raw_payload = payload or payload_q
+    if raw_payload:
+        try:
+            import json as _json
+            payload_obj = _json.loads(str(raw_payload))
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Invalid JSON in 'payload' field: {e}") from e
+    else:
+        # Try JSON body if not provided via form/query
+        try:
+            maybe = await request.json()
+            if isinstance(maybe, dict):
+                payload_obj = maybe
+        except Exception:
+            payload_obj = None
+    if payload_obj is None:
+        raise HTTPException(status_code=422, detail="Input should be a valid JSON object or a form field 'payload' with JSON")
+
+    pr = payload_obj.get("pull_request") or {}
     title = pr.get("title") or "(untitled PR)"
     body = pr.get("body") or ""
     base_branch = (pr.get("base") or {}).get("ref")
     head_branch = (pr.get("head") or {}).get("ref")
     diff_url = pr.get("diff_url")
-    repository = (payload.get("repository") or {}).get("full_name")
+    repository = (payload_obj.get("repository") or {}).get("full_name")
 
     diff_summary = (
     f"Repository: {repository}\nBase: {base_branch} -> Head: {head_branch}\nDiff URL: {diff_url}"
