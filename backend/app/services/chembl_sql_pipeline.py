@@ -115,7 +115,7 @@ class ChemblSqlPipeline:
         # Read soft timeout from env (seconds); default 0 = disabled
         try:
             _budget = float(os.getenv("CHEMBL_PIPELINE_TIMEOUT_S", "0"))
-        except Exception:
+        except (TypeError, ValueError):
             _budget = 0.0
         last: SqlState | None = None
         graph = self._build_graph(entry="classify")  # per-run
@@ -217,7 +217,60 @@ class ChemblSqlPipeline:
                 state.get("related_texts") or [],
                 state.get("attempts") or [],
                 state.get("optimized_guidelines") or "",
+                edit_mode=bool(state.get("prev_sql")),
             )
+            # Edit-guard: if in edit mode and the new SQL drops previous tables, retry once with stricter guidance
+            prev_sql_ctx = (state.get("prev_sql") or "").strip()
+            if prev_sql_ctx:
+                prev_tables = self._extract_tables_from_sql(prev_sql_ctx)
+                new_tables = self._extract_tables_from_sql(sql)
+                try:
+                    self._log_step(
+                        "SYNTH.tables",
+                        prev=",".join(sorted(prev_tables)) or "(none)",
+                        new=",".join(sorted(new_tables)) or "(none)",
+                    )
+                except Exception:
+                    pass
+                # Allow rewrite only if instruction clearly asks for major changes
+                instr = (state.get("prompt") or "").lower()
+                rewrite_markers = [
+                    "rewrite", "different table", "change table", "use table", "switch",
+                    "replace", "new query", "start over", "new tables", "totally different"
+                ]
+                allow_rewrite = any(m in instr for m in rewrite_markers)
+                if prev_tables and new_tables and not prev_tables.issubset(new_tables) and not allow_rewrite:
+                    guard_msg = (
+                        "STRICT EDIT GUARD: Reuse exactly these FROM/JOIN tables from the current SQL: "
+                        + ", ".join(sorted(prev_tables))
+                        + ". Do not remove or replace them. Only adjust filters, projections, or aliases as needed."
+                    )
+                    guidelines = (state.get("optimized_guidelines") or "").strip()
+                    if guidelines:
+                        guidelines = guidelines + "\n" + guard_msg
+                    else:
+                        guidelines = guard_msg
+                    try:
+                        sql2 = self._synthesize_sql(
+                            state.get("enhanced_query") or "",
+                            state.get("related_texts") or [],
+                            state.get("attempts") or [],
+                            guidelines,
+                            edit_mode=True,
+                        )
+                        new_tables2 = self._extract_tables_from_sql(sql2)
+                        if prev_tables.issubset(new_tables2):
+                            self._log_step("SYNTH.retry_guard.success")
+                            sql = sql2
+                        else:
+                            self._log_step(
+                                "SYNTH.retry_guard.nochange",
+                                prev=",".join(sorted(prev_tables)) or "(none)",
+                                new=",".join(sorted(new_tables2)) or "(none)",
+                            )
+                    except Exception as e:
+                        # If retry fails, keep original sql and proceed to execution/repair
+                        self._log_step("SYNTH.retry_guard.error", error=str(e))
             self._log_step("SYNTH.done", sql_len=len(sql), sql_head=self._preview(sql, 100), took_ms=int((time.perf_counter() - t0) * 1000))
             return {"sql": sql, "exec_failed": False}
 
@@ -384,13 +437,13 @@ class ChemblSqlPipeline:
         t0 = time.perf_counter()
         try:
             _budget = float(os.getenv("CHEMBL_PIPELINE_TIMEOUT_S", "0"))
-        except Exception:
+        except (TypeError, ValueError):
             _budget = 0.0
         last: SqlState | None = None
         graph = self._build_graph(entry="edit")
         for step in graph.stream(inputs, stream_mode="values"):
             last = step
-                # Respect optional soft timeout only if configured
+            # Respect optional soft timeout only if configured
             if _budget and _budget > 0 and (time.perf_counter() - t0) > _budget:
                 raise ValueError(f"Pipeline timeout: exceeded {_budget:.0f}s. Please try again or refine your prompt.")
         self._log_step(
@@ -427,7 +480,7 @@ class ChemblSqlPipeline:
                 seen.append(t)
         return seen
 
-    def _synthesize_sql(self, prompt: str, related_tables: List[str], attempts: List[dict] | None = None, guidelines: str | None = None) -> str:
+    def _synthesize_sql(self, prompt: str, related_tables: List[str], attempts: List[dict] | None = None, guidelines: str | None = None, edit_mode: bool = False) -> str:
         context = "\n\n".join(f"- {t}" for t in related_tables) if related_tables else "(none)"
         prev_attempts_txt = ""
         if attempts:
@@ -459,6 +512,12 @@ class ChemblSqlPipeline:
             "- If retrieved tables are '(none)', respond 'Sorry, I am unable to answer this.'.\n"
             "- IMPORTANT: Base your answer solely on the related tables provided."
         )
+        if edit_mode:
+            system += (
+                "\n- EDIT MODE: If a 'Current SQL (context)' is provided, minimally modify that SQL to satisfy the edit instruction."
+                "\n  Preserve its overall structure: CTEs, FROM/JOIN tables, join conditions, and selected columns."
+                "\n  Only add or adjust filters/aliases/projections as needed by the instruction; do not rewrite from scratch."
+            )
         self._log_step("SYNTH.start", prompt_len=len(prompt), tables=len(related_tables))
         try:
             out = self.llm.invoke([("system", system), ("user", user)])
@@ -690,3 +749,26 @@ class ChemblSqlPipeline:
         if not names:
             return "(none)"
         return ", ".join(names[:5]) + ("…" if len(names) > 5 else "")
+
+    def _extract_tables_from_sql(self, sql: str) -> set[str]:
+        """Heuristically extract table names from FROM/JOIN clauses.
+
+        This is a lightweight regex-based approach good enough for guard checks. It ignores subqueries.
+        """
+        try:
+            s = self._strip_sql_comments(sql or "")
+            # collapse whitespace
+            s = re.sub(r"\s+", " ", s)
+            tables: set[str] = set()
+            # Find FROM <table> and JOIN <table> tokens not followed immediately by '(' (i.e., subquery)
+            for kw in ("from", "join"):
+                pattern = re.compile(rf"\b{kw}\s+([A-Za-z_][A-Za-z0-9_\.]*)(?!\s*\()", flags=re.IGNORECASE)
+                for m in pattern.finditer(s):
+                    raw = m.group(1)
+                    # strip potential schema prefix and quotes
+                    name = raw.split(".")[-1].strip().strip("`\"[]")
+                    if name:
+                        tables.add(name)
+            return tables
+        except Exception:
+            return set()

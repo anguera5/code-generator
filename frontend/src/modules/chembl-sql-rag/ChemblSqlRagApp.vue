@@ -806,7 +806,7 @@ async function applyEdit() {
   if (!memoryId.value || !editInstruction.value.trim()) return
   loadingEdit.value = true
   try {
-    const res = await http.post('/api/chembl/edit', { memory_id: memoryId.value, instruction: editInstruction.value, api_key: apiKeyStore.apiKey })
+    const res = await http.post('/api/chembl/edit', { memory_id: memoryId.value, instruction: editInstruction.value, api_key: apiKeyStore.apiKey, prev_sql: sql.value })
     sql.value = res.data.sql || ''
     related.value = res.data.related_tables || []
     tableCards.value = parseRelatedTables(related.value)

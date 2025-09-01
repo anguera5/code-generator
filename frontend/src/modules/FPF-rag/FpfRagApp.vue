@@ -5,7 +5,7 @@
         <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
           <div class="flex-1">
             <div class="eyebrow">Chatbot</div>
-            <h1 class="headline">Food Packaging Forum RAG <span class="shimmer" /></h1>
+            <h1 class="headline">Unofficial Food Packaging Forum RAG <span class="shimmer" /></h1>
             <p class="op-80 mt-1">
               Ask questions about food packaging safety. Replies are grounded on FPF content using
               <strong>text-embedding-3-large</strong> and generated with <strong>gpt-4.1-mini</strong>.
@@ -146,7 +146,7 @@ onMounted(() => {
     console.log(`Chatbot config key: ${chatbotConfigKey}`)
     push(
       'assistant',
-      'Hello, this is the Food Packaging Forum chatbot, please ask me anything related to our work and I will happily try to solve your question.'
+      'Hello, this is the Unofficial Food Packaging Forum chatbot, please ask me anything related to our work and I will happily try to solve your question.'
     )
   }
 })

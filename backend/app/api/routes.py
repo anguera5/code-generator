@@ -111,7 +111,7 @@ async def chembl_edit(payload: ChemblSqlEditRequest):
     """Apply a tweak to the last SQL for a session and return updated SQL/results."""
     # Ensure model running with api key
     llm.check_model_running(payload.api_key)
-    state = llm.chembl_apply_edit(payload.memory_id, payload.instruction, payload.api_key)
+    state = llm.chembl_apply_edit(payload.memory_id, payload.instruction, payload.api_key, prev_sql=getattr(payload, "prev_sql", None))
     return ChemblSqlEditResponse(
         sql=state.get("sql", ""),
         related_tables=state.get("structured_tables", []),

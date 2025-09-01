@@ -59,7 +59,7 @@ class LLMModel:
                 except Exception as ex:
                     logger.warning("API key validation failed: %s", ex)
                     # Do not change current client on failure
-                    raise HTTPException(status_code=401, detail="Invalid API key or upstream not reachable.")
+                    raise HTTPException(status_code=401, detail="Invalid API key or upstream not reachable.") from ex
 
                 # Commit the new key and initialize the rest only after validation succeeds
                 self.api_key = incoming_key
@@ -142,7 +142,7 @@ class LLMModel:
     def chembl_session_get(self, memory_id: str) -> dict | None:
         return self._chembl_sessions.get(memory_id)
 
-    def chembl_apply_edit(self, memory_id: str, instruction: str, api_key: str) -> dict:
+    def chembl_apply_edit(self, memory_id: str, instruction: str, api_key: str, prev_sql: str | None = None) -> dict:
         """Apply a user tweak to the last SQL by asking the model to modify it based on the instruction.
         Returns a fresh state-like dict with updated sql, tables, and execution results.
         """
@@ -152,6 +152,9 @@ class LLMModel:
             raise HTTPException(status_code=400, detail="Unknown memory_id; run a query first.")
         original_prompt = str(prev.get("prompt") or "")
         last_sql = str(prev.get("sql") or "")
+        # Prefer caller-provided SQL if present to avoid relying solely on memory
+        if prev_sql and prev_sql.strip():
+            last_sql = prev_sql
         if not last_sql:
             raise HTTPException(status_code=400, detail="No SQL present for this session.")
         # Ensure pipeline exists and run the edit entry point (retrieve -> process -> synthesize -> execute -> repair)
@@ -160,7 +163,7 @@ class LLMModel:
         try:
             state = self.chembl_pipeline.run_edit(prev_sql=last_sql, instruction=instruction, original_prompt=original_prompt, limit=100)
         except Exception as ex:  # noqa: BLE001
-            raise HTTPException(status_code=400, detail=f"Edit pipeline error: {ex}")
+            raise HTTPException(status_code=400, detail=f"Edit pipeline error: {ex}") from ex
         # Persist updated session state
         self.chembl_session_set(memory_id, state)
         return state

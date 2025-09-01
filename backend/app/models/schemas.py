@@ -69,6 +69,8 @@ class ChemblSqlEditRequest(BaseModel):
     memory_id: str = Field(..., min_length=1)
     instruction: str = Field(..., min_length=1)
     api_key: str
+    # Optional: current SQL from the client to avoid relying solely on server session state
+    prev_sql: str | None = None
 
 class ChemblSqlEditResponse(BaseModel):
     sql: str
