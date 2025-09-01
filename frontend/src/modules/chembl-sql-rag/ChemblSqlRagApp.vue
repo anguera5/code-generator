@@ -173,7 +173,7 @@
     </v-card>
   </v-dialog>
     <!-- Results first -->
-    <v-card v-if="!noContext && rows.length" class="pa-4 mt-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
+  <v-card v-show="!noContext && rows.length" class="pa-4 mt-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
       <div class="d-flex align-center">
         <div class="text-subtitle-2">Results ({{ filteredRows.length }} / {{ rows.length }} rows)</div>
         <v-spacer />
@@ -235,7 +235,7 @@
                   <v-btn size="small" variant="text" @click="copySql" :disabled="!sql">Copy</v-btn>
                   <v-btn size="small" variant="text" @click="downloadSql" :disabled="!sql">Download</v-btn>
                 </div>
-                <div class="editor" ref="sqlEditorEl" style="height: 460px;"></div>
+                <div v-if="showTechDetails && isSqlPanelActive" class="editor" ref="sqlEditorEl" style="height: 460px;"></div>
                 <div v-if="optimizedGuidelines" class="mt-3 small op-80">
                   <div class="text-subtitle-2 mb-1">Query optimization notes</div>
                   <div class="result-box" style="max-height: 140px; overflow:auto; white-space: pre-wrap;">{{ optimizedGuidelines }}</div>
@@ -366,6 +366,10 @@ let sqlEditor: any = null
 let sqlModel: any = null
 const sqlEditorEl = ref<HTMLDivElement | null>(null)
 const sqlMarkers = ref<Array<{ message: string; severity: 'error' | 'warning' | 'hint'; startLineNumber?: number; startColumn?: number }>>([])
+const isSqlPanelActive = computed(() => {
+  const v = techPanels.value
+  return Array.isArray(v) ? v.includes(0) || v.includes('sql') : (v === 0 || v === 'sql')
+})
 
 function indexToPosition(text: string, index: number) {
   const lines = text.slice(0, index).split('\n')
@@ -459,6 +463,12 @@ watch(showTechDetails, async (open) => {
   if (open) {
     await nextTick()
     ensureSqlEditor()
+  } else {
+    // Dispose editor/model when dialog closes to ensure clean remount next time
+    try { sqlEditor?.dispose() } catch {}
+    try { sqlModel?.dispose() } catch {}
+    sqlEditor = null
+    sqlModel = null
   }
 })
 
