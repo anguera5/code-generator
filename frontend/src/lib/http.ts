@@ -3,9 +3,10 @@ import { useNotifyStore } from '../stores/notify'
 
 // Create a singleton axios instance
 // Let Vite proxy /api to backend; baseURL left empty so relative URLs work
-// Default to no timeout (0). You can override via VITE_HTTP_TIMEOUT (ms)
+// Default to a generous timeout (e.g., 5 minutes) so large DB queries aren't cut off locally.
+// Override via VITE_HTTP_TIMEOUT (ms). Use 0 to disable.
 const parsed = Number((import.meta as any).env?.VITE_HTTP_TIMEOUT)
-const timeout = Number.isFinite(parsed) ? parsed : 0
+const timeout = Number.isFinite(parsed) ? parsed : 300_000
 export const http = axios.create({ timeout })
 
 // Helper to safely access store outside of setup by importing on demand

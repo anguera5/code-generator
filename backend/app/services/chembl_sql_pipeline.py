@@ -100,7 +100,7 @@ class ChemblSqlPipeline:
         """Run the full graph and return final state with sql, structured tables, and results.
 
         - Builds a fresh graph per run (robust after exceptions, thread-safe by isolation).
-        - Soft timeout: 55s overall to avoid client/proxy 60s limits.
+        - Optional soft timeout (CHEMBL_PIPELINE_TIMEOUT_S). Set to 0 to disable.
         """
         run_id = uuid.uuid4().hex[:8]
         inputs: SqlState = {
@@ -112,13 +112,18 @@ class ChemblSqlPipeline:
         }
         self._log_step("START", run_id=run_id, prompt_preview=self._preview(prompt), limit=inputs["limit"])
         t0 = time.perf_counter()
+        # Read soft timeout from env (seconds); default 0 = disabled
+        try:
+            _budget = float(os.getenv("CHEMBL_PIPELINE_TIMEOUT_S", "0"))
+        except Exception:
+            _budget = 0.0
         last: SqlState | None = None
         graph = self._build_graph(entry="classify")  # per-run
         for step in graph.stream(inputs, stream_mode="values"):
             last = step
-            if (time.perf_counter() - t0) > 55:
+            if _budget and _budget > 0 and (time.perf_counter() - t0) > _budget:
                 # Leave a clear message; frontend will show it in the snackbar
-                raise ValueError("Pipeline timeout: exceeded 55s. Please try again or refine your prompt.")
+                raise ValueError(f"Pipeline timeout: exceeded {_budget:.0f}s. Please try again or refine your prompt.")
         self._log_step(
             "END",
             run_id=run_id,
@@ -377,12 +382,17 @@ class ChemblSqlPipeline:
             limit=inputs["limit"],
         )
         t0 = time.perf_counter()
+        try:
+            _budget = float(os.getenv("CHEMBL_PIPELINE_TIMEOUT_S", "0"))
+        except Exception:
+            _budget = 0.0
         last: SqlState | None = None
         graph = self._build_graph(entry="edit")
         for step in graph.stream(inputs, stream_mode="values"):
             last = step
-            if (time.perf_counter() - t0) > 55:
-                raise ValueError("Pipeline timeout: exceeded 55s. Please try again or refine your prompt.")
+                # Respect optional soft timeout only if configured
+            if _budget and _budget > 0 and (time.perf_counter() - t0) > _budget:
+                raise ValueError(f"Pipeline timeout: exceeded {_budget:.0f}s. Please try again or refine your prompt.")
         self._log_step(
             "END.EDIT",
             run_id=run_id,
