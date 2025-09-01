@@ -46,6 +46,7 @@ class FpfRagResponse(BaseModel):
 class ChemblSqlPlanRequest(BaseModel):
     prompt: str
     api_key: str
+    memory_id: str | None = None
 
 
 class ChemblSqlPlanResponse(BaseModel):
@@ -60,6 +61,34 @@ class ChemblSqlExecuteRequest(BaseModel):
 
 
 class ChemblSqlExecuteResponse(BaseModel):
+    columns: list[str]
+    rows: list[list]
+
+
+class ChemblSqlEditRequest(BaseModel):
+    memory_id: str = Field(..., min_length=1)
+    instruction: str = Field(..., min_length=1)
+    api_key: str
+
+class ChemblSqlEditResponse(BaseModel):
+    sql: str
+    related_tables: list[Any] | None = None
+    columns: list[str]
+    rows: list[list]
+    retries: int
+    repaired: bool
+    no_context: bool
+    not_chembl: bool
+    chembl_reason: str | None = None
+    optimized_guidelines: str | None = None
+
+
+class ChemblSqlReexecuteRequest(BaseModel):
+    memory_id: str = Field(..., min_length=1)
+    limit: int = Field(default=100, ge=1, le=10000)
+    api_key: str
+
+class ChemblSqlReexecuteResponse(BaseModel):
     columns: list[str]
     rows: list[list]
 

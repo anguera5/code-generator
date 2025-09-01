@@ -8,6 +8,10 @@ from app.models.schemas import (
     FpfRagRequest,
     FpfRagResponse,
     ChemblSqlPlanRequest,
+    ChemblSqlEditRequest,
+    ChemblSqlEditResponse,
+    ChemblSqlReexecuteRequest,
+    ChemblSqlReexecuteResponse,
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
@@ -78,6 +82,10 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
     """
     try:
         state: dict[str, Any] = llm.run_chembl_full(payload.prompt, limit=100, api_key=payload.api_key)
+        # Attach prompt and persist session if memory_id provided
+        state["prompt"] = payload.prompt
+        if getattr(payload, "memory_id", None):
+            llm.chembl_session_set(payload.memory_id, state)
         response = {
             "sql": state.get("sql", ""),
             "related_tables": state.get("structured_tables", []),
@@ -88,9 +96,48 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
             "no_context": bool(state.get("no_context", False)),
             "not_chembl": bool(state.get("not_chembl", False)),
             "chembl_reason": state.get("chembl_reason", ""),
+            "optimized_guidelines": state.get("optimized_guidelines", ""),
+            "memory_id": payload.memory_id or None,
         }
         print(response)
         return response
     except ValueError as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/chembl/edit", response_model=ChemblSqlEditResponse)
+async def chembl_edit(payload: ChemblSqlEditRequest):
+    """Apply a tweak to the last SQL for a session and return updated SQL/results."""
+    # Ensure model running with api key
+    llm.check_model_running(payload.api_key)
+    state = llm.chembl_apply_edit(payload.memory_id, payload.instruction, payload.api_key)
+    return ChemblSqlEditResponse(
+        sql=state.get("sql", ""),
+        related_tables=state.get("structured_tables", []),
+        columns=state.get("columns", []),
+        rows=state.get("rows", []),
+        retries=int(state.get("retries") or 0),
+        repaired=bool(state.get("repaired") or False),
+        no_context=bool(state.get("no_context") or False),
+        not_chembl=bool(state.get("not_chembl") or False),
+        chembl_reason=state.get("chembl_reason") or "",
+        optimized_guidelines=state.get("optimized_guidelines") or "",
+    )
+
+
+@router.post("/chembl/reexecute", response_model=ChemblSqlReexecuteResponse)
+async def chembl_reexecute(payload: ChemblSqlReexecuteRequest):
+    """Re-execute the last SQL for a given session with a new LIMIT."""
+    # Ensure model running with api key
+    llm.check_model_running(payload.api_key)
+    prev = llm.chembl_session_get(payload.memory_id)
+    if not prev:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Unknown memory_id; run a query first.")
+    sql = (prev.get("sql") or "").strip()
+    if not sql:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No SQL present for this session.")
+    cols, rows = llm.chembl_reexecute(payload.memory_id, payload.limit, payload.api_key)
+    return ChemblSqlReexecuteResponse(columns=cols, rows=rows)

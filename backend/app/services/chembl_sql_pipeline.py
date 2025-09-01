@@ -36,6 +36,10 @@ FORBIDDEN_TOKENS = (
 class SqlState(TypedDict, total=False):
     prompt: str
     enhanced_query: str
+    # Previous SQL when coming from edit workflow
+    prev_sql: str
+    # Original question prompt when editing (optional)
+    original_prompt: str
     related_texts: List[str]
     structured_tables: List[dict]
     sql: str
@@ -47,6 +51,12 @@ class SqlState(TypedDict, total=False):
     no_context: bool
     not_chembl: bool
     chembl_reason: str
+    # Repair/resynthesis control
+    repaired: bool
+    exec_failed: bool
+    attempts: List[dict]
+    optimized_guidelines: str
+    loops: int
 
 
 class ChemblSqlPipeline:
@@ -93,11 +103,17 @@ class ChemblSqlPipeline:
         - Soft timeout: 55s overall to avoid client/proxy 60s limits.
         """
         run_id = uuid.uuid4().hex[:8]
-        inputs: SqlState = {"prompt": prompt, "limit": int(limit or 100), "retries": 0}
+        inputs: SqlState = {
+            "prompt": prompt,
+            "limit": int(limit or 100),
+            "retries": 0,
+            "attempts": [],
+            "loops": 0,
+        }
         self._log_step("START", run_id=run_id, prompt_preview=self._preview(prompt), limit=inputs["limit"])
         t0 = time.perf_counter()
-        last = None
-        graph = self._build_graph()  # per-run
+        last: SqlState | None = None
+        graph = self._build_graph(entry="classify")  # per-run
         for step in graph.stream(inputs, stream_mode="values"):
             last = step
             if (time.perf_counter() - t0) > 55:
@@ -114,7 +130,7 @@ class ChemblSqlPipeline:
         return last or {}
 
     # ----------------- LangGraph -----------------
-    def _build_graph(self):
+    def _build_graph(self, entry: str = "classify"):
         g = StateGraph(SqlState)
 
         def node_classify(state: SqlState) -> SqlState:
@@ -145,7 +161,7 @@ class ChemblSqlPipeline:
             if state.get("not_chembl"):
                 self._log_step("PLAN.skip", reason="not_chembl")
                 return {}
-            enhanced = self._plan_query(state["prompt"]) if state.get("prompt") else ""
+            enhanced = self._plan_query(state.get("prompt") or "")
             self._log_step("PLAN.done", len=len(enhanced), took_ms=int((time.perf_counter() - t0) * 1000))
             return {"enhanced_query": enhanced}
 
@@ -161,6 +177,28 @@ class ChemblSqlPipeline:
             structured = [self._to_structured_table_dict(t) for t in related_texts]
             return {"related_texts": related_texts, "structured_tables": structured, "no_context": len(related_texts) == 0}
 
+        def node_process(state: SqlState) -> SqlState:
+            t0 = time.perf_counter()
+            if state.get("not_chembl"):
+                self._log_step("PROCESS.skip", reason="not_chembl")
+                return {}
+            if not state.get("related_texts"):
+                self._log_step("PROCESS.skip", reason="no_related_docs")
+                return {"optimized_guidelines": ""}
+            try:
+                base_prompt = (state.get("original_prompt") or state.get("prompt") or "")
+                guidelines = self._build_optimized_guidelines(base_prompt, state.get("related_texts") or [])
+            except ValueError as e:
+                self._log_step("PROCESS.error", error=str(e))
+                guidelines = (
+                    "- Use exact column names and proper JOINs on keys (PK/FK).\n"
+                    "- Filter early with WHERE; aggregate only when needed.\n"
+                    "- Return concise columns; avoid SELECT *.\n"
+                    "- Respect SQLite syntax; add LIMIT for preview."
+                )
+            self._log_step("PROCESS.done", took_ms=int((time.perf_counter() - t0) * 1000), preview=self._preview(guidelines, 160))
+            return {"optimized_guidelines": guidelines}
+
         def node_synthesize(state: SqlState) -> SqlState:
             t0 = time.perf_counter()
             if state.get("not_chembl"):
@@ -169,62 +207,191 @@ class ChemblSqlPipeline:
             if not state.get("related_texts"):
                 self._log_step("SYNTH.skip", reason="no_context")
                 return {"sql": "", "no_context": True}
-            sql = self._synthesize_sql(state.get("enhanced_query") or "", state.get("related_texts") or [])
+            sql = self._synthesize_sql(
+                state.get("enhanced_query") or "",
+                state.get("related_texts") or [],
+                state.get("attempts") or [],
+                state.get("optimized_guidelines") or "",
+            )
             self._log_step("SYNTH.done", sql_len=len(sql), sql_head=self._preview(sql, 100), took_ms=int((time.perf_counter() - t0) * 1000))
-            return {"sql": sql}
+            return {"sql": sql, "exec_failed": False}
 
         def node_execute(state: SqlState) -> SqlState:
             t0 = time.perf_counter()
             sql = state.get("sql") or ""
             limit = state.get("limit") or 100
             retries = int(state.get("retries") or 0)
+            attempts = list(state.get("attempts") or [])
             if state.get("no_context"):
                 self._log_step("EXEC.skip", reason="no_context")
-                return {"columns": [], "rows": [], "error": "", "retries": retries, "no_context": True}
+                return {"columns": [], "rows": [], "error": "", "retries": retries, "no_context": True, "exec_failed": False}
             try:
                 cols, rows = self._execute_sql(sql, limit)
                 self._log_step("EXEC.done", rows=len(rows), cols=len(cols), took_ms=int((time.perf_counter() - t0) * 1000))
-                return {"columns": cols, "rows": rows, "error": "", "retries": retries}
+                return {"columns": cols, "rows": rows, "error": "", "retries": retries, "exec_failed": False}
             except ValueError as e:
                 err = str(e)
                 self._log_step("EXEC.fail", retries=retries, error_preview=self._preview(err, 160))
-                if retries >= 1:
-                    raise
-                repaired_sql = self._repair_sql(
-                    state.get("prompt") or "",
-                    sql,
-                    err,
-                    state.get("related_texts") or [],
-                )
-                self._log_step("REPAIR.sql", head=self._preview(repaired_sql, 160))
-                try:
-                    cols2, rows2 = self._execute_sql(repaired_sql, limit)
-                    self._log_step("REPAIR.done", rows=len(rows2), cols=len(cols2))
-                    return {"sql": repaired_sql, "columns": cols2, "rows": rows2, "error": "", "retries": retries + 1}
-                except ValueError as e2:
-                    self._log_step("REPAIR.fail", error_preview=self._preview(str(e2), 160))
-                    raise
+                attempts.append({"stage": "execute", "sql": sql, "error": err})
+                return {"columns": [], "rows": [], "error": err, "retries": retries, "exec_failed": True, "attempts": attempts}
+
+        def node_repair(state: SqlState) -> SqlState:
+            t0 = time.perf_counter()
+            if state.get("no_context") or not state.get("exec_failed"):
+                self._log_step("REPAIR.skip", reason=("no_context" if state.get("no_context") else "no_exec_fail"))
+                return {}
+            retries = int(state.get("retries") or 0)
+            loops = int(state.get("loops") or 0)
+            attempts = list(state.get("attempts") or [])
+            prev_sql = state.get("sql") or ""
+            last_err = state.get("error") or ""
+            repaired_sql = self._repair_sql(
+                state.get("prompt") or "",
+                prev_sql,
+                last_err,
+                state.get("related_texts") or [],
+            )
+            self._log_step("REPAIR.sql", head=self._preview(repaired_sql, 160), took_ms=int((time.perf_counter() - t0) * 1000))
+            try:
+                cols2, rows2 = self._execute_sql(repaired_sql, state.get("limit") or 100)
+                self._log_step("REPAIR.done", rows=len(rows2), cols=len(cols2))
+                attempts.append({"stage": "repair", "sql": repaired_sql, "error": ""})
+                return {
+                    "sql": repaired_sql,
+                    "columns": cols2,
+                    "rows": rows2,
+                    "error": "",
+                    "retries": retries + 1,
+                    "repaired": True,
+                    "exec_failed": False,
+                    "attempts": attempts,
+                }
+            except ValueError as e2:
+                err2 = str(e2)
+                self._log_step("REPAIR.fail", error_preview=self._preview(err2, 160))
+                attempts.append({"stage": "repair", "sql": repaired_sql, "error": err2})
+                return {
+                    "sql": repaired_sql,
+                    "columns": [],
+                    "rows": [],
+                    "error": err2,
+                    "retries": retries + 1,
+                    "loops": loops + 1,
+                    "repaired": False,
+                    "exec_failed": True,
+                    "attempts": attempts,
+                }
+
+        # New: edit entry node
+        def node_edit_entry(state: SqlState) -> SqlState:
+            """
+            Compose an enhanced query from the original prompt, the user's edit instruction (provided in state.prompt),
+            and the previous SQL (state.prev_sql). This feeds retrieval directly, skipping classify/plan for edits.
+            """
+            instr = (state.get("prompt") or "").strip()
+            prev = (state.get("prev_sql") or "").strip()
+            # Optionally include original question if provided separately in state under 'original_prompt'
+            original_prompt = (state.get("original_prompt") or "").strip()
+            self._log_step("EDIT.entry", instr_len=len(instr), prev_len=len(prev), has_orig=bool(original_prompt))
+            parts = []
+            if original_prompt:
+                parts.append("Original question:\n" + original_prompt)
+            parts.append("Edit instruction:\n" + (instr or "(none)"))
+            if prev:
+                parts.append("Current SQL (context):\n" + prev)
+            parts.append("Goal: apply a minimal change; preserve existing tables, joins, and CTEs unless explicitly requested.")
+            enhanced = "\n\n".join(parts)
+            return {
+                "enhanced_query": enhanced,
+                # make sure downstream nodes don't early-exit at this point
+                "not_chembl": False,
+                "no_context": False,
+            }
 
         # Wire graph
         g.add_node("classify", node_classify)
         g.add_node("plan", node_plan)
         g.add_node("retrieve", node_retrieve)
+        g.add_node("process", node_process)
         g.add_node("synthesize", node_synthesize)
         g.add_node("execute", node_execute)
+        g.add_node("repair", node_repair)
+        g.add_node("edit_entry", node_edit_entry)
 
-        g.set_entry_point("classify")
-        # Early-exit when not ChEMBL related
-        g.add_conditional_edges(
-            "classify",
-            lambda s: "end" if s.get("not_chembl") else "plan",
-            {"plan": "plan", "end": END},
-        )
-        g.add_edge("plan", "retrieve")
-        g.add_edge("retrieve", "synthesize")
+        if entry == "classify":
+            g.set_entry_point("classify")
+            g.add_conditional_edges(
+                "classify",
+                lambda s: "end" if s.get("not_chembl") else "plan",
+                {"plan": "plan", "end": END},
+            )
+            g.add_edge("plan", "retrieve")
+        elif entry == "edit":
+            g.set_entry_point("edit_entry")
+            g.add_edge("edit_entry", "retrieve")
+        else:
+            # default to classify path if unknown
+            g.set_entry_point("classify")
+            g.add_edge("plan", "retrieve")
+        g.add_edge("retrieve", "process")
+        g.add_edge("process", "synthesize")
         g.add_edge("synthesize", "execute")
-        g.add_edge("execute", END)
+        g.add_conditional_edges(
+            "execute",
+            lambda s: "end" if (not s.get("exec_failed")) or s.get("no_context") else "repair",
+            {"repair": "repair", "end": END},
+        )
+        def _after_repair(s: SqlState) -> str:
+            if not s.get("exec_failed"):
+                return "end"
+            loops = int(s.get("loops") or 0)
+            # Exit if loops >= 3, else go back to process
+            return "process" if loops < 3 else "end"
+        g.add_conditional_edges("repair", _after_repair, {"process": "process", "end": END})
 
         return g.compile()
+
+    def run_edit(self, prev_sql: str, instruction: str, original_prompt: str | None = None, limit: int | None = 100) -> SqlState:
+        """
+        Edit entry-point: start the graph at 'edit_entry' so we skip classify/plan.
+        The enhanced query includes original prompt (if available), the edit instruction, and the current SQL.
+        Flow: edit_entry -> retrieve -> process -> synthesize -> execute -> (conditional) repair.
+        """
+        run_id = uuid.uuid4().hex[:8]
+        inputs: SqlState = {
+            "prompt": instruction or "",
+            "original_prompt": (original_prompt or ""),  # carried for logging/guidelines context
+            "prev_sql": prev_sql or "",
+            "limit": int(limit or 100),
+            "retries": 0,
+            "attempts": [],
+            "loops": 0,
+            "not_chembl": False,
+            "no_context": False,
+        }
+        self._log_step(
+            "START.EDIT",
+            run_id=run_id,
+            instr_preview=self._preview(instruction or ""),
+            prev_head=self._preview(prev_sql or "", 120),
+            limit=inputs["limit"],
+        )
+        t0 = time.perf_counter()
+        last: SqlState | None = None
+        graph = self._build_graph(entry="edit")
+        for step in graph.stream(inputs, stream_mode="values"):
+            last = step
+            if (time.perf_counter() - t0) > 55:
+                raise ValueError("Pipeline timeout: exceeded 55s. Please try again or refine your prompt.")
+        self._log_step(
+            "END.EDIT",
+            run_id=run_id,
+            sql_len=len((last or {}).get("sql", "")),
+            rows=len((last or {}).get("rows", [])),
+            cols=len((last or {}).get("columns", [])),
+            took_ms=int((time.perf_counter() - t0) * 1000),
+        )
+        return last or {}
 
     # ----------------- Steps (logic) -----------------
     def _plan_query(self, prompt: str) -> str:
@@ -250,10 +417,30 @@ class ChemblSqlPipeline:
                 seen.append(t)
         return seen
 
-    def _synthesize_sql(self, prompt: str, related_tables: List[str]) -> str:
+    def _synthesize_sql(self, prompt: str, related_tables: List[str], attempts: List[dict] | None = None, guidelines: str | None = None) -> str:
         context = "\n\n".join(f"- {t}" for t in related_tables) if related_tables else "(none)"
+        prev_attempts_txt = ""
+        if attempts:
+            try:
+                # Keep only last 2 attempts for brevity
+                last = attempts[-2:]
+                lines = []
+                for i, a in enumerate(last, 1):
+                    sql_prev = str(a.get("sql") or "").strip()
+                    err_prev = str(a.get("error") or "").strip()
+                    if sql_prev:
+                        lines.append(f"Attempt {i} SQL:\n{sql_prev}")
+                    if err_prev:
+                        lines.append(f"Attempt {i} error:\n{err_prev}")
+                if lines:
+                    prev_attempts_txt = "\n\nPrevious attempts and errors (for correction):\n" + "\n\n".join(lines)
+            except (ValueError, TypeError, KeyError, AttributeError, IndexError):
+                prev_attempts_txt = ""
+        guide_txt = ("\n\nOptimization guidelines to follow:\n" + (guidelines or "").strip()) if (guidelines and guidelines.strip()) else ""
         user = (
-            "User question:\n" + prompt + "\n\n" "Related tables (retrieved):\n" + context + "\n\n"
+            "User question:\n" + prompt + "\n\n" +
+            "Related tables (retrieved):\n" + context +
+            prev_attempts_txt + guide_txt + "\n\n" +
             "Write a single valid and optimized SQLite SQL query that best answers the question using these tables."
         )
         system = (
@@ -281,6 +468,33 @@ class ChemblSqlPipeline:
             self._log_step("SYNTH.unfence", sql_head=self._preview(sql, 100))
         return sql
 
+    def _build_optimized_guidelines(self, prompt: str, related_texts: List[str]) -> str:
+        """Generate concise, actionable SQL optimization guidelines based on retrieved schema snippets."""
+        tables_summary = "\n\n".join(related_texts[:5])  # cap prompt size
+        system = (
+            "You are a senior data engineer. Draft precise guidelines to produce a high-quality, efficient SQLite query for the ChEMBL-like schema described.\n"
+            "Rules: concise bullet points (4-8), concrete advice on joins, filters, aggregation, projections, and indices/keys; no SQL code."
+        )
+        user = (
+            "User question:\n" + (prompt or "").strip() + "\n\n" +
+            "Relevant schema excerpts:\n" + tables_summary
+        )
+        self._log_step("PROCESS.guidelines.start")
+        try:
+            out = self.llm.invoke([("system", system), ("user", user)])
+        except Exception as e:  # noqa: BLE001 - upstream API may raise various exceptions
+            raise ValueError(f"Guidelines LLM error: {e}") from e
+        text = (getattr(out, "content", "") or "").strip()
+        # Strip potential code fences or prose wrappers
+        if text.startswith("````") or text.startswith("```"):
+            text = text.strip('`')
+            text = text.strip()
+            if text.endswith("````"):
+                text = text[:-4].strip()
+            elif text.endswith("```"):
+                text = text[:-3].strip()
+        return text
+
     def _classify_chembl_relevance(self, prompt: str) -> Tuple[bool, str, float]:
         """Decide if the prompt is related to the ChEMBL database domain.
 
@@ -302,6 +516,9 @@ class ChemblSqlPipeline:
         )
         try:
             out = self.llm.invoke([("system", system), ("user", user)])
+        except Exception as e:  # noqa: BLE001 - upstream API may raise various exceptions
+            self._log_step("CLASSIFY.error", error=str(e))
+        else:
             text = (getattr(out, "content", "") or "").strip()
             data = None
             # Attempt robust JSON parse
@@ -317,8 +534,6 @@ class ChemblSqlPipeline:
                 conf = float(data.get("confidence", 0))
                 reason = str(data.get("reason") or "")
                 return is_chembl, reason, max(0.0, min(1.0, conf))
-        except Exception as e:  # noqa: BLE001
-            self._log_step("CLASSIFY.error", error=str(e))
 
         # Heuristic fallback
         p = (prompt or "").lower()

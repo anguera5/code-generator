@@ -18,6 +18,11 @@
                     </div>
                     <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
                     <div class="step reveal">
+                      <v-icon icon="mdi-shield-check-outline" size="26" />
+                      <div class="label">Query verification</div>
+                    </div>
+                    <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    <div class="step reveal">
                       <v-icon icon="mdi-brain" size="26" />
                       <div class="label">LLM plan</div>
                     </div>
@@ -27,6 +32,13 @@
                       <div class="label">SQL</div>
                     </div>
                     <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    <template v-if="hasRepair">
+                      <div class="step reveal">
+                        <v-icon icon="mdi-auto-fix" size="26" />
+                        <div class="label">Repair</div>
+                      </div>
+                      <div class="arrow reveal"><v-icon icon="mdi-arrow-right" /></div>
+                    </template>
                     <div class="step reveal">
                       <v-icon icon="mdi-database" size="26" />
                       <div class="label">SQLite</div>
@@ -76,13 +88,16 @@
         <div class="input-wrap">
           <v-textarea
             v-model="question"
-            label="Ask a question (e.g., 'Top 10 compounds active against a given target')"
+            :label="apiKeyStore.apiKey ? `Ask a question (e.g., 'Top 10 compounds active against a given target')` : 'Enter API key (top bar) to use ChEMBL'"
             auto-grow
             rows="2"
             max-rows="6"
             hide-details
             density="comfortable"
+            :disabled="!apiKeyStore.apiKey"
+            @keydown="onKeyDown"
           />
+          <div v-if="!apiKeyStore.apiKey" class="input-overlay" />
           <!-- Integrated prompt suggestions (compact, scrollable) -->
           <div class="suggestions-row">
             <button
@@ -90,7 +105,8 @@
               :key="ex.title"
               type="button"
               class="ex-suggestion"
-              @click="useExample(ex)"
+              :disabled="!apiKeyStore.apiKey"
+              @click="apiKeyStore.apiKey && useExample(ex)"
               :title="`Paste: ${ex.description}`"
             >
               <span class="ex-text">{{ ex.description }}</span>
@@ -99,11 +115,46 @@
         </div>
       </div>
       <div class="d-flex justify-center ga-2 mt-3">
-  <v-btn color="primary" :loading="loading" :disabled="loading || !apiKeyStore.apiKey || !question.trim()" @click="runAll">
-          Run
-        </v-btn>
+        <v-tooltip text="Enter API key in the top bar" v-if="!apiKeyStore.apiKey">
+          <template #activator="{ props }">
+            <div v-bind="props">
+              <SendButton :disabled="true">Run</SendButton>
+            </div>
+          </template>
+        </v-tooltip>
+        <SendButton v-else :disabled="loading || !question.trim()" :loading="loading" @click="runAll">Run</SendButton>
       </div>
+
+      <!-- Edit controls moved here; only visible after SQL is generated -->
+      <v-expand-transition>
+        <div v-if="sql" class="mt-4">
+          <div class="text-subtitle-2 mb-1">Refine result</div>
+          <v-text-field
+            v-model="editInstruction"
+            hide-details
+            label="Describe a tweak (e.g., rename a column, add a filter)"
+            density="compact"
+          />
+          <div class="mt-2 d-flex ga-2">
+            <v-btn size="small" variant="tonal" color="primary" :disabled="!editInstruction.trim() || !memoryId || loadingEdit" :loading="loadingEdit" @click="applyEdit">Apply edit</v-btn>
+            <v-btn size="small" variant="text" color="secondary" @click="editInstruction=''">Clear</v-btn>
+            <v-spacer />
+            <v-btn size="small" variant="text" color="secondary" v-if="sql || related.length" @click="showTechDetails = true">Technical details</v-btn>
+          </div>
+        </div>
+      </v-expand-transition>
     </v-card>
+
+    <!-- Info section outside the input panel -->
+    <v-alert
+      class="mt-4 mx-auto"
+      style="max-width: 1200px;"
+      variant="tonal"
+      type="info"
+      density="comfortable"
+    >
+      Results may take a little time to appear. This is perfectly normal, since the ChEMBL database is very large and the app runs on limited resources. Thanks for your patience — the results will be worth the wait!
+    </v-alert>
 
   <!-- No-context dialog (elegant notice) -->
   <v-dialog v-model="showNoContextDialog" max-width="640" scrim="rgba(12, 10, 25, 0.6)">
@@ -121,86 +172,12 @@
       </div>
     </v-card>
   </v-dialog>
-
-    <v-card v-if="(sql || related.length) && !noContext" class="pa-4 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
-      <v-row class="ga-2 no-wrap-sm" align="stretch">
-        <!-- SQL preview (left) -->
-        <v-col cols="12" sm="6" md="6" class="sql-panel">
-          <div class="d-flex align-center justify-space-between mb-2">
-            <div class="text-subtitle-2 d-flex align-center ga-2">
-              <span>Proposed SQL</span>
-              <v-chip v-if="repaired" size="x-small" color="warning" variant="tonal" title="Query was repaired after an error">repaired</v-chip>
-            </div>
-            <div>
-              <v-btn size="small" variant="text" @click="copySql" :disabled="!sql">Copy</v-btn>
-              <v-btn size="small" variant="text" @click="downloadSql" :disabled="!sql">Download</v-btn>
-            </div>
-          </div>
-          <div class="editor" ref="sqlEditorEl" style="height: 460px;"></div>
-          <div v-if="sqlMarkers.length" class="mt-2 small op-80">
-            <v-chip v-for="(m, i) in sqlMarkers" :key="i" size="x-small" :color="m.severity==='error' ? 'error' : (m.severity==='warning' ? 'warning' : 'info')" class="ma-1" variant="tonal">
-              {{ m.message }}
-            </v-chip>
-          </div>
-        </v-col>
-
-        <!-- Related tables + schema details (right) -->
-  <v-col cols="12" sm="6" md="6" class="schema-panel">
-          <div class="text-subtitle-2 mb-2 d-flex align-center ga-2">
-            <span>Related tables</span>
-            <v-spacer />
-            <v-chip v-if="!tableCards.length" size="small" variant="tonal">(none)</v-chip>
-          </div>
-          <div class="chip-list mb-2">
-            <v-chip v-for="t in tableCards" :key="t.name" class="ma-1 reveal" variant="tonal" color="secondary" @click="scrollToTable(t.name)">{{ t.name }}</v-chip>
-          </div>
-          <div class="schema-scroll">
-            <v-expansion-panels variant="accordion" multiple>
-              <v-expansion-panel v-for="t in tableCards" :key="t.name" :ref="setTableRef(t.name)" class="schema-card reveal">
-                <v-expansion-panel-title>
-                  <div class="d-flex align-center w-100">
-                    <strong>{{ t.name }}</strong>
-                    <v-spacer />
-                    <v-btn size="x-small" variant="text" @click.stop="copySchema(t)">Copy schema</v-btn>
-                  </div>
-                  <template #subtitle>
-                    <span v-if="t.description" class="small op-80">{{ t.description }}</span>
-                  </template>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <div v-if="t.columns && t.columns.length" class="kv-list">
-                    <div v-for="col in t.columns" :key="col.name + (col.type||'')" class="kv-row">
-                      <div class="k">{{ col.name }}</div>
-                      <div class="v">
-                        <span v-if="col.type" class="tag">{{ col.type }}</span>
-                        <span v-if="col.pk" class="tag">PK</span>
-                        <span v-if="col.fk" class="tag">FK</span>
-                        <span v-if="col.uk" class="tag">UK</span>
-                        <span v-if="col.notnull" class="tag">NOT NULL</span>
-                        <span v-if="col.description" class="desc">{{ col.description }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-else class="text-disabled small">No columns detected.</div>
-                  <div v-if="t.foreign_keys && t.foreign_keys.length" class="fk-block mt-2">
-                    <div class="small op-70 mb-1">Foreign keys</div>
-                    <div class="kv-row" v-for="(fk, i) in t.foreign_keys" :key="i">
-                      <div class="k">{{ fk.from }}</div>
-                      <div class="v">→ {{ fk.table }}.{{ fk.to }} <span class="op-70" v-if="fk.on_delete">(on_delete: {{ fk.on_delete }})</span></div>
-                    </div>
-                  </div>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </div>
-        </v-col>
-      </v-row>
-    </v-card>
-
-  <v-card v-if="!noContext && rows.length" class="pa-4 mt-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
+    <!-- Results first -->
+    <v-card v-if="!noContext && rows.length" class="pa-4 mt-6 glass-panel hover-raise mx-auto" elevation="2" max-width="1200">
       <div class="d-flex align-center">
         <div class="text-subtitle-2">Results ({{ filteredRows.length }} / {{ rows.length }} rows)</div>
         <v-spacer />
+        <v-btn size="small" variant="text" class="mr-2" @click="downloadCsv" :disabled="!columns.length || !filteredRows.length">Download CSV</v-btn>
         <v-btn size="small" variant="text" class="mr-2" @click="clearFilters" :disabled="!columnFilters.some(f=>f)">Clear filters</v-btn>
         <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details style="max-width: 120px" />
       </div>
@@ -232,6 +209,108 @@
         </table>
       </div>
     </v-card>
+
+    <!-- Technical details modal -->
+    <v-dialog v-model="showTechDetails" max-width="1200px" scrim="rgba(12, 10, 25, 0.6)">
+      <v-card class="glass-panel" elevation="8">
+        <v-card-title class="d-flex align-center">
+          <v-icon icon="mdi-cog-outline" class="mr-2" />
+          Technical details
+          <v-spacer />
+          <v-btn icon variant="text" @click="showTechDetails=false"><v-icon icon="mdi-close" /></v-btn>
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <v-expansion-panels v-model="techPanels" variant="accordion" multiple>
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <div class="d-flex align-center w-100">
+                  <strong>SQL query</strong>
+                  <v-spacer />
+                  <v-chip v-if="repaired" size="x-small" color="warning" variant="tonal" title="Query was repaired after an error">repaired</v-chip>
+                </div>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <div class="d-flex align-center justify-end mb-1">
+                  <v-btn size="small" variant="text" @click="copySql" :disabled="!sql">Copy</v-btn>
+                  <v-btn size="small" variant="text" @click="downloadSql" :disabled="!sql">Download</v-btn>
+                </div>
+                <div class="editor" ref="sqlEditorEl" style="height: 460px;"></div>
+                <div v-if="optimizedGuidelines" class="mt-3 small op-80">
+                  <div class="text-subtitle-2 mb-1">Query optimization notes</div>
+                  <div class="result-box" style="max-height: 140px; overflow:auto; white-space: pre-wrap;">{{ optimizedGuidelines }}</div>
+                </div>
+                <div v-if="sqlMarkers.length" class="mt-2 small op-80">
+                  <v-chip v-for="(m, i) in sqlMarkers" :key="i" size="x-small" :color="m.severity==='error' ? 'error' : (m.severity==='warning' ? 'warning' : 'info')" class="ma-1" variant="tonal">
+                    {{ m.message }}
+                  </v-chip>
+                </div>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <div class="d-flex align-center w-100">
+                  <strong>Schema & related tables</strong>
+                  <v-spacer />
+                  <v-chip v-if="!tableCards.length" size="small" variant="tonal">(none)</v-chip>
+                </div>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <div class="chip-list mb-2">
+                  <v-chip v-for="t in tableCards" :key="t.name" class="ma-1 reveal" variant="tonal" color="secondary" @click="scrollToTable(t.name)">{{ t.name }}</v-chip>
+                </div>
+                <div class="schema-scroll">
+                  <v-expansion-panels variant="accordion" multiple>
+                    <v-expansion-panel v-for="t in tableCards" :key="t.name" :ref="setTableRef(t.name)" class="schema-card reveal">
+                      <v-expansion-panel-title>
+                        <div class="d-flex align-center w-100">
+                          <strong>{{ t.name }}</strong>
+                          <v-spacer />
+                          <v-btn size="x-small" variant="text" @click.stop="copySchema(t)" :disabled="!apiKeyStore.apiKey">Copy schema</v-btn>
+                        </div>
+                        <template #subtitle>
+                          <span v-if="t.description" class="small op-80">{{ t.description }}</span>
+                        </template>
+                      </v-expansion-panel-title>
+                      <v-expansion-panel-text>
+                        <div v-if="t.columns && t.columns.length" class="kv-list">
+                          <div v-for="col in t.columns" :key="col.name + (col.type||'')" class="kv-row">
+                            <div class="k">{{ col.name }}</div>
+                            <div class="v">
+                              <span v-if="col.type" class="tag">{{ col.type }}</span>
+                              <span v-if="col.pk" class="tag">PK</span>
+                              <span v-if="col.fk" class="tag">FK</span>
+                              <span v-if="col.uk" class="tag">UK</span>
+                              <span v-if="col.notnull" class="tag">NOT NULL</span>
+                              <span v-if="col.description" class="desc">{{ col.description }}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="text-disabled small">No columns detected.</div>
+                        <div v-if="t.foreign_keys && t.foreign_keys.length" class="fk-block mt-2">
+                          <div class="small op-70 mb-1">Foreign keys</div>
+                          <div class="kv-row" v-for="(fk, i) in t.foreign_keys" :key="i">
+                            <div class="k">{{ fk.from }}</div>
+                            <div class="v">→ {{ fk.table }}.{{ fk.to }} <span class="op-70" v-if="fk.on_delete">(on_delete: {{ fk.on_delete }})</span></div>
+                          </div>
+                        </div>
+                      </v-expansion-panel-text>
+                    </v-expansion-panel>
+                  </v-expansion-panels>
+                </div>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="justify-end">
+          <v-btn variant="tonal" color="primary" @click="showTechDetails=false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+  
   </v-container>
 </template>
 
@@ -243,6 +322,7 @@ import http from '../../lib/http'
 import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
 import PageTitle from '../../components/PageTitle.vue'
+import SendButton from '../../components/SendButton.vue'
 
 const apiKeyStore = useApiKeyStore()
 const notify = useNotifyStore()
@@ -268,8 +348,17 @@ const retries = ref(0)
 const repaired = ref(false)
 const noContext = ref(false)
 const chemblReason = ref('')
+const optimizedGuidelines = ref('')
+const memoryId = ref('')
+const editInstruction = ref('')
+const loadingEdit = ref(false)
+const showTechDetails = ref(false)
+const techPanels = ref<any>([0]) // expand SQL panel by default for visible container
 // Per-column filters (aligned with columns by index)
 const columnFilters = ref<string[]>([])
+
+// Repair step visibility: show when backend attempted or succeeded a repair
+const hasRepair = computed(() => Boolean(repaired.value || (retries.value > 0)))
 
 
 // Monaco editor for SQL preview
@@ -333,9 +422,13 @@ function ensureSqlEditor() {
   scrollBeyondLastLine: false,
       wordWrap: 'on',
     })
+    // Layout after mount to handle initial size
+    nextTick(() => { try { sqlEditor?.layout() } catch {} })
   }
   if (sqlModel) sqlModel.setValue(sql.value || '')
   lintSql(sql.value || '')
+  // Layout in case container became visible
+  nextTick(() => { try { sqlEditor?.layout() } catch {} })
 }
 
 watch(sql, (val) => {
@@ -361,6 +454,34 @@ watch(columns, (cols) => {
   columnFilters.value = next
 })
 
+// Initialize the SQL editor when opening the Technical details modal
+watch(showTechDetails, async (open) => {
+  if (open) {
+    await nextTick()
+    ensureSqlEditor()
+  }
+})
+
+// Re-layout when expansion panels change (e.g., SQL panel opens)
+watch(techPanels, async () => {
+  await nextTick()
+  try { sqlEditor?.layout() } catch {}
+})
+
+// Observe container resize to keep Monaco sized correctly
+let resizeObs: ResizeObserver | null = null
+onMounted(() => {
+  if ('ResizeObserver' in window) {
+    resizeObs = new ResizeObserver(() => { try { sqlEditor?.layout() } catch {} })
+    if (sqlEditorEl.value) resizeObs.observe(sqlEditorEl.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (resizeObs && sqlEditorEl.value) resizeObs.unobserve(sqlEditorEl.value)
+  resizeObs = null
+})
+
 const filteredRows = computed(() => {
   const filters = columnFilters.value
   if (!filters.some(f => f && f.trim())) return rows.value
@@ -378,6 +499,29 @@ const filteredRows = computed(() => {
 
 function clearFilters() {
   columnFilters.value = new Array(columns.value.length).fill('')
+}
+
+// Debounced re-execution when limit changes
+let limitTimer: any = null
+watch(limit, (val) => {
+  if (!memoryId.value || !sql.value) return
+  if (limitTimer) clearTimeout(limitTimer)
+  limitTimer = setTimeout(async () => {
+    try {
+      const res = await http.post('/api/chembl/reexecute', { memory_id: memoryId.value, limit: Number(val) || 100, api_key: apiKeyStore.apiKey })
+      columns.value = res.data.columns || []
+      rows.value = res.data.rows || []
+    } catch (e) {
+      // no-op; errors are centrally notified
+    }
+  }, 400)
+})
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    if (!loading.value && apiKeyStore.apiKey && question.value.trim()) runAll()
+  }
 }
 
 // Table cards derived from related_tables
@@ -599,13 +743,19 @@ async function runAll() {
   related.value = []
   columns.value = []
   rows.value = []
+  // Start a fresh session for each new run
+  memoryId.value = crypto.randomUUID()
+  editInstruction.value = ''
+  loadingEdit.value = false
   try {
-    const res = await http.post('/api/chembl/run', { prompt: question.value, api_key: apiKeyStore.apiKey })
+  const res = await http.post('/api/chembl/run', { prompt: question.value, api_key: apiKeyStore.apiKey, memory_id: memoryId.value })
   const isNoCtx = Boolean(res.data?.no_context || res.data?.not_chembl)
   chemblReason.value = String(res.data?.chembl_reason || '')
     noContext.value = isNoCtx
     retries.value = Number(res.data?.retries || 0)
     repaired.value = Boolean(res.data?.repaired || (retries.value > 0))
+  optimizedGuidelines.value = String(res.data?.optimized_guidelines || '')
+  memoryId.value = String(res.data?.memory_id || memoryId.value || '')
 
     if (isNoCtx) {
       // Elegantly inform user and avoid injecting any message into editor/results
@@ -629,12 +779,36 @@ async function runAll() {
     rows.value = res.data.rows || []
     nextTick(() => { ensureSqlEditor(); revealDynamic() })
   } catch (e:any) {
-    // Errors are globally notified by interceptor; keep state minimal
+    // Errors are globally notified by interceptor; also surface 401 specifically
+    const status = e?.response?.status
+    if (status === 401) {
+      notify.error('API key is invalid. Please check your key and try again.')
+    }
     columns.value = []
     rows.value = []
   } finally {
     loading.value = false
     execLoading.value = false
+  }
+}
+
+async function applyEdit() {
+  if (!memoryId.value || !editInstruction.value.trim()) return
+  loadingEdit.value = true
+  try {
+    const res = await http.post('/api/chembl/edit', { memory_id: memoryId.value, instruction: editInstruction.value, api_key: apiKeyStore.apiKey })
+    sql.value = res.data.sql || ''
+    related.value = res.data.related_tables || []
+    tableCards.value = parseRelatedTables(related.value)
+    columns.value = res.data.columns || []
+    rows.value = res.data.rows || []
+    retries.value = Number(res.data.retries || 0)
+    repaired.value = Boolean(res.data.repaired || false)
+    optimizedGuidelines.value = String(res.data.optimized_guidelines || '')
+    await nextTick()
+    ensureSqlEditor()
+  } finally {
+    loadingEdit.value = false
   }
 }
 
@@ -650,6 +824,32 @@ function downloadSql() {
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = 'query.sql'
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+function downloadCsv() {
+  if (!columns.value.length || !filteredRows.value.length) return
+  const esc = (v: any) => {
+    if (v === null || v === undefined) return ''
+    const s = String(v)
+    // Escape quotes by doubling them and wrap if needed
+    const needsWrap = /[",\n]/.test(s)
+    const inner = s.replace(/"/g, '""')
+    return needsWrap ? `"${inner}"` : inner
+  }
+  const lines = [columns.value.map(esc).join(',')]
+  for (const row of filteredRows.value) {
+    lines.push((row || []).map(esc).join(','))
+  }
+  const csv = lines.join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  const ts = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const name = `ChEMBL_query_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}.csv`
+  a.download = name
   a.click()
   URL.revokeObjectURL(a.href)
 }
@@ -705,7 +905,7 @@ function revealDynamic() {
   .result-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; white-space: pre-wrap; min-height: 48px; }
   .result-box.sql { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   .chip-list { display:flex; flex-wrap: wrap; align-items: flex-start; }
-  .table-wrapper { overflow:auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+  .table-wrapper { overflow:auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); max-height: 420px; }
   .result-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   .result-table th, .result-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
   .result-table thead th { position: sticky; top: 0; background: rgba(255,255,255,0.06); text-align: left; }
@@ -754,9 +954,11 @@ function revealDynamic() {
   filter: blur(14px); opacity: .9;
   animation: ex-glow 12s ease-in-out infinite;
 }
-.ex-suggestion:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); }
-.ex-suggestion:active { transform: translateY(0); box-shadow: 0 6px 16px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.16); }
-.ex-suggestion:focus-visible { outline: 2px solid rgba(143,108,255,.7); outline-offset: 2px; }
+.ex-suggestion:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); }
+.ex-suggestion:not(:disabled):active { transform: translateY(0); box-shadow: 0 6px 16px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.16); }
+.ex-suggestion:not(:disabled):focus-visible { outline: 2px solid rgba(143,108,255,.7); outline-offset: 2px; }
+.ex-suggestion:disabled { cursor: not-allowed; opacity: .55; pointer-events: none; filter: grayscale(10%); }
+.ex-suggestion:disabled::before { animation: none; opacity: .3; }
 .ex-text { position: relative; z-index: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-clamp: 2; }
 @keyframes ex-glow { 0% { --gx: 10%; --gy: 40%; } 50% { --gx: 80%; --gy: 60%; } 100% { --gx: 10%; --gy: 40%; } }
 @media (max-width: 700px) { .ex-suggestion { min-width: 160px; height: 56px; font-size: .8rem; } }
@@ -770,7 +972,8 @@ function revealDynamic() {
 .tag { display:inline-block; background: rgba(56,214,238,0.12); border: 1px solid rgba(56,214,238,0.35); padding: 1px 6px; border-radius: 999px; font-size: 0.72rem; }
 
 /* Centered input width */
-.input-wrap { width: 100%; max-width: 900px; }
+.input-wrap { width: 100%; max-width: 900px; position: relative; }
+.input-overlay { position:absolute; inset:4px 6px; border-radius: 12px; background: repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 8px, rgba(255,255,255,.04) 8px 16px); pointer-events:none; opacity:.6; }
 
 /* Examples grid */
 .examples-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }

@@ -13,6 +13,7 @@ from app.core.prompts import (
 from app.services.rag_model import build_langgraph, rag_answer_process
 from app.services.chembl_sql_pipeline import ChemblSqlPipeline
 import logging
+import threading
 
 _settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -28,31 +29,56 @@ class LLMModel:
         self.vector_store_sql = None
         self.rag_chain = None
         self.chembl_pipeline = None
+        # Simple in-memory session map for ChEMBL edit mode
+        self._chembl_sessions: dict[str, dict] = {}
+        # Minimal concurrency safety for (re)initialization
+        self._init_lock = threading.RLock()
 
     def check_model_running(self, api_key: str):
-        # Re-initialize LLM if API key changed
-        if not self.api_key and api_key not in [None, '', self.api_key]:
-            self.api_key = api_key
-            # Add request-level timeout to avoid long hanging LLM calls
-            self.llm = ChatOpenAI(
-                model=self.model,
-                temperature=self.temperature,
-                openai_api_key=api_key,
-                timeout=55,  # seconds (shorter than typical reverse proxy timeouts)
-            )
-            self.embeddings = OpenAIEmbeddings(model=_settings.openai_embedding_model, api_key=api_key)
-            self.vector_store_website = Chroma(
-                embedding_function=self.embeddings,
-                persist_directory="app/chroma_db",
-            )
-            self.vector_store_sql = Chroma(
-                collection_name="chembl_schema",
-                embedding_function=self.embeddings,
-                persist_directory="app/chroma_db",
-            )
-        if not self.llm:
-            raise HTTPException(status_code=400, detail="API key is required to initialize the model.")
-        return True
+        # Normalize provided key
+        incoming_key = (api_key or '').strip()
+        current_key = (self.api_key or '').strip()
+
+        with self._init_lock:
+            # Early exit if we already have a client and the key hasn't changed
+            if self.llm and incoming_key == current_key:
+                return True
+
+            # Re-initialize only when a new, non-empty key differs from the current one
+            if incoming_key and incoming_key != current_key:
+                # Create a temporary client to validate the key before committing
+                temp_llm = ChatOpenAI(
+                    model=self.model,
+                    temperature=self.temperature,
+                    openai_api_key=incoming_key,
+                    timeout=15,  # shorter timeout for key validation
+                )
+                try:
+                    # Tiny no-op call to validate the key; minimal cost
+                    _ = temp_llm.invoke("ping")
+                except Exception as ex:
+                    logger.warning("API key validation failed: %s", ex)
+                    # Do not change current client on failure
+                    raise HTTPException(status_code=401, detail="Invalid API key or upstream not reachable.")
+
+                # Commit the new key and initialize the rest only after validation succeeds
+                self.api_key = incoming_key
+                self.llm = temp_llm
+                self.embeddings = OpenAIEmbeddings(model=_settings.openai_embedding_model, api_key=incoming_key)
+                self.vector_store_website = Chroma(
+                    embedding_function=self.embeddings,
+                    persist_directory="app/chroma_db",
+                )
+                self.vector_store_sql = Chroma(
+                    collection_name="chembl_schema",
+                    embedding_function=self.embeddings,
+                    persist_directory="app/chroma_db",
+                )
+
+            # If model not yet initialized and no valid key provided now, error
+            if not self.llm:
+                raise HTTPException(status_code=400, detail="API key is required to initialize the model.")
+            return True
 
 
     # ---------------------- Code Generation ----------------------
@@ -108,6 +134,52 @@ class LLMModel:
         if not self.chembl_pipeline:
             self.chembl_pipeline = ChemblSqlPipeline(self.llm, self.vector_store_sql)
         return self.chembl_pipeline.run_all(prompt, limit)
+
+    def chembl_session_set(self, memory_id: str, state: dict):
+        # Store last state for a session id
+        self._chembl_sessions[memory_id] = state
+
+    def chembl_session_get(self, memory_id: str) -> dict | None:
+        return self._chembl_sessions.get(memory_id)
+
+    def chembl_apply_edit(self, memory_id: str, instruction: str, api_key: str) -> dict:
+        """Apply a user tweak to the last SQL by asking the model to modify it based on the instruction.
+        Returns a fresh state-like dict with updated sql, tables, and execution results.
+        """
+        self.check_model_running(api_key)
+        prev = self.chembl_session_get(memory_id)
+        if not prev:
+            raise HTTPException(status_code=400, detail="Unknown memory_id; run a query first.")
+        original_prompt = str(prev.get("prompt") or "")
+        last_sql = str(prev.get("sql") or "")
+        if not last_sql:
+            raise HTTPException(status_code=400, detail="No SQL present for this session.")
+        # Ensure pipeline exists and run the edit entry point (retrieve -> process -> synthesize -> execute -> repair)
+        if not self.chembl_pipeline:
+            self.chembl_pipeline = ChemblSqlPipeline(self.llm, self.vector_store_sql)
+        try:
+            state = self.chembl_pipeline.run_edit(prev_sql=last_sql, instruction=instruction, original_prompt=original_prompt, limit=100)
+        except Exception as ex:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"Edit pipeline error: {ex}")
+        # Persist updated session state
+        self.chembl_session_set(memory_id, state)
+        return state
+
+    def chembl_reexecute(self, memory_id: str, limit: int, api_key: str) -> tuple[list[str], list[list]]:
+        """Re-execute the last SQL for a session with a new LIMIT and persist rows/columns back to session."""
+        self.check_model_running(api_key)
+        prev = self.chembl_session_get(memory_id)
+        if not prev:
+            raise HTTPException(status_code=400, detail="Unknown memory_id; run a query first.")
+        sql = str(prev.get("sql") or "")
+        if not sql:
+            raise HTTPException(status_code=400, detail="No SQL present for this session.")
+        if not self.chembl_pipeline:
+            self.chembl_pipeline = ChemblSqlPipeline(self.llm, self.vector_store_sql)
+        cols, rows = self.chembl_pipeline.execute_only(sql, limit or 100)
+        prev["columns"], prev["rows"] = cols, rows
+        self.chembl_session_set(memory_id, prev)
+        return cols, rows
 
     # ---------------------- Helpers ----------------------
     def strip_markdown_fences(self, text: str) -> str:
