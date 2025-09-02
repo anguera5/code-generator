@@ -86,14 +86,28 @@ class CodeReviewController:
         if installation_id and owner and repo and pr_number:
             # Build minimal inline comments if possible
             comments = self._build_inline_comments(ctx, review_text)
-            self.gh_app.post_pull_request_review(
-                installation_id=int(installation_id),
-                owner=str(owner),
-                repo=str(repo),
-                pr_number=int(pr_number),
-                body=review_text,
-                comments=comments if comments else None,
-            )
+            try:
+                self.gh_app.post_pull_request_review(
+                    installation_id=int(installation_id),
+                    owner=str(owner),
+                    repo=str(repo),
+                    pr_number=int(pr_number),
+                    body=review_text,
+                    comments=comments if comments else None,
+                )
+            except RuntimeError as e:
+                # If inline positions are invalid (422), retry with summary-only review
+                if "422" in str(e):
+                    self.gh_app.post_pull_request_review(
+                        installation_id=int(installation_id),
+                        owner=str(owner),
+                        repo=str(repo),
+                        pr_number=int(pr_number),
+                        body=review_text,
+                        comments=None,
+                    )
+                else:
+                    raise
 
     # -------- Inline comments --------
     def _build_inline_comments(self, ctx: Dict[str, Any], review_text: str) -> list[dict]:
