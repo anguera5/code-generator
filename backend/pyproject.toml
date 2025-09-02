@@ -25,6 +25,7 @@ dependencies = [
   "langchain-chroma>=0.2.5",
   "pyjwt>=2.10.1",
   "requests>=2.32.4",
+  "cryptography>=45.0.7",
 ]
 
 [tool.setuptools.packages.find]

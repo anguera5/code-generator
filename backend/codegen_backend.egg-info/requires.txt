@@ -4,6 +4,7 @@ pydantic==2.8.2
 python-dotenv==1.0.1
 httpx==0.27.0
 orjson==3.10.7
+PyJWT>=2.8.0
 langchain>=0.3.27
 langchain-openai>=0.2.2
 langgraph>=0.6.5
@@ -13,3 +14,4 @@ lxml>=6.0.0
 langchain-chroma>=0.2.5
 pyjwt>=2.10.1
 requests>=2.32.4
+cryptography>=45.0.7
