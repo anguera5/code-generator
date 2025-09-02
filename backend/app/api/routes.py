@@ -63,7 +63,8 @@ async def code_review_webhook(
         try:
             form = await request.form()
             payload_str = form.get("payload") if form else None
-        except Exception:  # form may not be available for application/json
+        except RuntimeError:
+            # form() may raise in some server contexts (e.g., non-form content-type)
             payload_str = None
     payload_obj = code_review.parse_payload(raw_body, payload_str)
     ctx = code_review.extract_pr_context(payload_obj)

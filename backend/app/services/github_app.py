@@ -107,12 +107,21 @@ class GitHubApp:
     def verify_signature(self, headers: Dict[str, str], body: bytes) -> bool:
         if not self.webhook_secret:
             return True  # not enforced
-        sig = headers.get("X-Hub-Signature-256") or headers.get("x-hub-signature-256")
-        if not sig or not sig.startswith("sha256="):
-            return False
-        digest = hmac.new(self.webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-        expected = f"sha256={digest}"
-        return hmac.compare_digest(expected, sig)
+        # Normalize header keys (case-insensitive)
+        hdrs = {str(k).lower(): v for k, v in headers.items()}
+        sha256_sig = hdrs.get("x-hub-signature-256")
+        sha1_sig = hdrs.get("x-hub-signature")
+
+        # Prefer sha256; fall back to sha1 if present
+        if sha256_sig and sha256_sig.startswith("sha256="):
+            digest = hmac.new(self.webhook_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+            expected = f"sha256={digest}"
+            return hmac.compare_digest(expected, sha256_sig)
+        if sha1_sig and sha1_sig.startswith("sha1="):
+            digest = hmac.new(self.webhook_secret.encode("utf-8"), body, hashlib.sha1).hexdigest()
+            expected = f"sha1={digest}"
+            return hmac.compare_digest(expected, sha1_sig)
+        return False
 
     # --------- PR Reviews ---------
     def post_pull_request_review(

@@ -86,6 +86,10 @@ class CodeReviewController:
         if installation_id and owner and repo and pr_number:
             # Build minimal inline comments if possible
             comments = self._build_inline_comments(ctx, review_text)
+            print(f"[CODE-REVIEW] Inline comments prepared: {len(comments)}")
+            if comments:
+                preview = [{"path": c.get("path"), "position": c.get("position")} for c in comments[:3]]
+                print(f"[CODE-REVIEW] Inline preview (first 3): {preview}")
             try:
                 self.gh_app.post_pull_request_review(
                     installation_id=int(installation_id),
@@ -95,9 +99,11 @@ class CodeReviewController:
                     body=review_text,
                     comments=comments if comments else None,
                 )
+                print("[CODE-REVIEW] Review posted (with inline comments).")
             except RuntimeError as e:
                 # If inline positions are invalid (422), retry with summary-only review
                 if "422" in str(e):
+                    print("[CODE-REVIEW] Inline comments rejected by GitHub (422). Retrying without inline comments.")
                     self.gh_app.post_pull_request_review(
                         installation_id=int(installation_id),
                         owner=str(owner),
@@ -106,6 +112,7 @@ class CodeReviewController:
                         body=review_text,
                         comments=None,
                     )
+                    print("[CODE-REVIEW] Review posted (summary-only).")
                 else:
                     raise
 
@@ -130,6 +137,7 @@ class CodeReviewController:
         except (RuntimeError, ValueError, TypeError):
             # If the file list cannot be fetched, fall back to summary-only review
             return []
+        print(f"[CODE-REVIEW] PR files fetched: {len(files)}")
 
         # Ensure LLM is initialized (reuse OPENAI_API_KEY if needed)
         if getattr(self.llm, "llm", None) is None:
@@ -141,6 +149,7 @@ class CodeReviewController:
         inline: list[dict] = []
         max_total = 10
         max_per_file = 3
+        first_fallback: dict | None = None
         for f in files:
             if len(inline) >= max_total:
                 break
@@ -159,6 +168,12 @@ class CodeReviewController:
 
             if not allowed_positions:
                 continue
+            if first_fallback is None:
+                first_fallback = {
+                    "path": path,
+                    "position": allowed_positions[0],
+                    "body": "Automated review: please double-check this change (see summary).",
+                }
 
             # Ask the LLM to produce at most max_per_file inline comments in strict JSON
             prompt = (
@@ -169,6 +184,9 @@ class CodeReviewController:
                 "Use the provided AllowedPositions (unified diff indexes) and choose positions strictly from it.\n"
                 "Return STRICT JSON with this shape: {\"comments\": [{\"position\": <int>, \"body\": \"<short suggestion>\"}, ...]}\n"
                 "Do not include code fences or any text outside JSON. Keep bodies concise (<= 200 chars).\n"
+                "Contextual Summary (may inform prioritization, do not reference it in comments):\n"
+                + (review_text[:300] if isinstance(review_text, str) else "")
+                + "\n"
                 f"Path: {path}\n"
                 f"AllowedPositions: {allowed_positions}\n"
                 "UnifiedDiffWithPositions:\n"
@@ -178,9 +196,11 @@ class CodeReviewController:
             try:
                 resp = self.llm.llm.invoke(prompt)
                 text = getattr(resp, "content", str(resp)) or "{}"
+                print(f"[CODE-REVIEW] LLM inline raw (trunc): {text[:200].replace('\n', ' ')}...")
                 obj = self._safe_parse_json(text)
                 comments = obj.get("comments") if isinstance(obj, dict) else None
                 if not isinstance(comments, list):
+                    print("[CODE-REVIEW] LLM inline: no comments array found.")
                     continue
                 per_file: list[dict] = []
                 for c in comments:
@@ -192,12 +212,17 @@ class CodeReviewController:
                         per_file.append({"path": path, "position": pos, "body": body.strip()})
                     if len(per_file) >= max_per_file:
                         break
+                print(f"[CODE-REVIEW] LLM inline accepted for {path}: {len(per_file)} (allowed: {len(allowed_positions)})")
                 inline.extend(per_file)
             except (ValueError, TypeError):
+                print("[CODE-REVIEW] LLM inline: parsing error; skipping file.")
                 continue
 
             if len(inline) >= max_total:
                 break
+        if not inline and first_fallback is not None:
+            print("[CODE-REVIEW] Inline empty after LLM; adding single fallback inline comment.")
+            inline.append(first_fallback)
         return inline
 
         
@@ -236,5 +261,5 @@ class CodeReviewController:
                 s = s[first_nl + 1 :]
         try:
             return json.loads(s)
-        except Exception:  # narrow handling is not critical here; returns empty
+        except (json.JSONDecodeError, ValueError):  # return empty on invalid JSON
             return {}
