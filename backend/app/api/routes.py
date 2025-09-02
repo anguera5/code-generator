@@ -22,7 +22,7 @@ from app.services.code_review_controller import CodeReviewController
 router = APIRouter()
 settings = get_settings()
 llm = LLMModel()
-github_app = GitHubApp.from_env()
+github_app = GitHubApp()
 code_review = CodeReviewController(llm, github_app)
 
 @router.get("/")
@@ -51,7 +51,7 @@ async def code_review_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
 ):
-    """Webhook for PR reviews: verifies signature, generates review, posts as GitHub App bot."""
+    """Webhook for PR reviews: verifies signature, generates review, posts using PAT."""
     raw_body: bytes = await request.body()
     # Verify signature if configured. If invalid, return a 200 JSON response GitHub accepts, but skip processing.
     if not code_review.signature_valid(dict(request.headers), raw_body):
