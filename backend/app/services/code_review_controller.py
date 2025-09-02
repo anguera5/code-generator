@@ -111,10 +111,10 @@ class CodeReviewController:
 
     # -------- Inline comments --------
     def _build_inline_comments(self, ctx: Dict[str, Any], review_text: str) -> list[dict]:
-        """Create a few safe inline comments to anchor the review.
+        """Use the LLM to generate targeted inline comments on added lines only.
 
-        This minimal strategy avoids complex diff mapping by attaching a single comment to the
-        first hunk of up to 3 changed files, placing it at the first added/modified line.
+        We number the unified diff lines to match GitHub's expected 'position' and provide the set
+        of allowed positions (only '+' lines). The LLM must choose positions from that set.
         """
         installation_id = ctx.get("installation_id")
         owner = ctx.get("owner")
@@ -131,24 +131,73 @@ class CodeReviewController:
             # If the file list cannot be fetched, fall back to summary-only review
             return []
 
+        # Ensure LLM is initialized (reuse OPENAI_API_KEY if needed)
+        if getattr(self.llm, "llm", None) is None:
+            import os
+            env_key = os.getenv("OPENAI_API_KEY", "").strip()
+            if env_key:
+                self.llm.check_model_running(env_key)
+
         inline: list[dict] = []
-        # Very simple patch parser to find first added line position in the diff for each file
-        for f in files[:3]:  # limit comments to first 3 files to avoid noise
+        max_total = 10
+        max_per_file = 3
+        for f in files:
+            if len(inline) >= max_total:
+                break
             path = f.get("filename")
             patch: str | None = f.get("patch")
             if not path or not patch:
                 continue
-            position = self._first_added_position(patch)
-            if position is None:
+            # Compute allowed positions (only added lines), and build numbered patch
+            lines = patch.splitlines()
+            allowed_positions: list[int] = []
+            numbered = []
+            for i, line in enumerate(lines, start=1):
+                if line.startswith("+") and not line.startswith("+++"):
+                    allowed_positions.append(i)
+                numbered.append(f"{i:05d}: {line}")
+
+            if not allowed_positions:
                 continue
-            # Use a brief hint drawn from the overall review to make the inline actionable
-            snippet = (review_text or "").splitlines()[0:1]
-            hint = snippet[0] if snippet else "Consider improvements here."
-            inline.append({
-                "path": path,
-                "position": position,
-                "body": f"Suggestion: {hint}",
-            })
+
+            # Ask the LLM to produce at most max_per_file inline comments in strict JSON
+            prompt = (
+                "You are a senior code reviewer. Given a single-file unified diff, suggest at most "
+                f"{max_per_file} high-signal inline comments ONLY on added lines.\n"
+                "Focus on issues like secrets/tokens, unsafe patterns (eval/exec, subprocess shell=True, "
+                "os.system, pickle.loads), TLS verify=False, and clear bad practices.\n"
+                "Use the provided AllowedPositions (unified diff indexes) and choose positions strictly from it.\n"
+                "Return STRICT JSON with this shape: {\"comments\": [{\"position\": <int>, \"body\": \"<short suggestion>\"}, ...]}\n"
+                "Do not include code fences or any text outside JSON. Keep bodies concise (<= 200 chars).\n"
+                f"Path: {path}\n"
+                f"AllowedPositions: {allowed_positions}\n"
+                "UnifiedDiffWithPositions:\n"
+                + "\n".join(numbered)
+            )
+
+            try:
+                resp = self.llm.llm.invoke(prompt)
+                text = getattr(resp, "content", str(resp)) or "{}"
+                obj = self._safe_parse_json(text)
+                comments = obj.get("comments") if isinstance(obj, dict) else None
+                if not isinstance(comments, list):
+                    continue
+                per_file: list[dict] = []
+                for c in comments:
+                    if not isinstance(c, dict):
+                        continue
+                    pos = c.get("position")
+                    body = c.get("body")
+                    if isinstance(pos, int) and pos in allowed_positions and isinstance(body, str) and body.strip():
+                        per_file.append({"path": path, "position": pos, "body": body.strip()})
+                    if len(per_file) >= max_per_file:
+                        break
+                inline.extend(per_file)
+            except (ValueError, TypeError):
+                continue
+
+            if len(inline) >= max_total:
+                break
         return inline
 
         
@@ -171,3 +220,21 @@ class CodeReviewController:
                 found_any = True
                 break
         return pos if found_any else None
+
+    def _safe_parse_json(self, text: str) -> dict:
+        """Parse JSON output from the model, tolerating optional code fences.
+
+        Returns an empty dict on failure.
+        """
+        s = text.strip()
+        # Strip markdown fences if present
+        if s.startswith("```") and s.endswith("```"):
+            s = s.strip("`")
+            # Remove possible language hint
+            first_nl = s.find("\n")
+            if first_nl != -1:
+                s = s[first_nl + 1 :]
+        try:
+            return json.loads(s)
+        except Exception:  # narrow handling is not critical here; returns empty
+            return {}
