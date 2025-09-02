@@ -157,14 +157,27 @@ class CodeReviewController:
             patch: str | None = f.get("patch")
             if not path or not patch:
                 continue
-            # Compute allowed positions (only added lines), and build numbered patch
+            # Compute allowed positions (only added lines) using GitHub's expected diff indexing:
+            # Count ONLY context (' '), additions ('+'), and deletions ('-') lines. Do NOT count hunk headers ('@@').
+            # This aligns with the PR review API's 'position' semantics per file.
             lines = patch.splitlines()
             allowed_positions: list[int] = []
-            numbered = []
-            for i, line in enumerate(lines, start=1):
-                if line.startswith("+") and not line.startswith("+++"):
-                    allowed_positions.append(i)
-                numbered.append(f"{i:05d}: {line}")
+            numbered: list[str] = []
+            pos = 0
+            for line in lines:
+                if line.startswith("@@"):
+                    # hunk header; not counted in position index
+                    numbered.append(f"-----: {line}")
+                    continue
+                # Count only actual diff lines
+                if line[:1] in {" ", "+", "-"}:
+                    pos += 1
+                    if line.startswith("+") and not line.startswith("+++"):
+                        allowed_positions.append(pos)
+                    numbered.append(f"{pos:05d}: {line}")
+                else:
+                    # Any other header-like lines are not counted
+                    numbered.append(f"-----: {line}")
 
             if not allowed_positions:
                 continue
