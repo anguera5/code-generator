@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, Form, Query, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from app.models.schemas import (
     GenerateRequest,
     GenerateResponse,
@@ -49,16 +49,22 @@ async def generate_docs(payload: BasicRequest):
 @router.post("/code-review/webhook", response_model=CodeReviewResponse)
 async def code_review_webhook(
     request: Request,
-    payload: str | None = Form(None),
-    payload_q: str | None = Query(None),
-    background_tasks: BackgroundTasks | None = None,
+    background_tasks: BackgroundTasks,
 ):
     """Webhook for PR reviews: verifies signature, generates review, posts as GitHub App bot."""
     raw_body: bytes = await request.body()
     # Verify signature if configured
     code_review.verify_signature_or_raise(dict(request.headers), raw_body)
 
-    payload_obj = code_review.parse_payload(raw_body, payload or payload_q)
+    # Pull optional 'payload' from query or form for proxies that wrap JSON
+    payload_str = request.query_params.get("payload")
+    if payload_str is None:
+        try:
+            form = await request.form()
+            payload_str = form.get("payload") if form else None
+        except Exception:  # form may not be available for application/json
+            payload_str = None
+    payload_obj = code_review.parse_payload(raw_body, payload_str)
     ctx = code_review.extract_pr_context(payload_obj)
     title = ctx["title"]
     base_branch = ctx.get("base_branch")
@@ -74,8 +80,7 @@ async def code_review_webhook(
             f"[CODE-REVIEW] Post attempted on {ctx.get('owner')}/{ctx.get('repo')}#{ctx.get('pr_number')}"
         )
 
-    if background_tasks is not None:
-        background_tasks.add_task(_run_review_task)
+    background_tasks.add_task(_run_review_task)
 
     ack = (
         f"Received webhook for PR: {title}. Base: {base_branch or '-'} -> Head: {head_branch or '-'}"
