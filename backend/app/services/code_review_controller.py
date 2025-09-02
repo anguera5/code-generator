@@ -84,10 +84,76 @@ class CodeReviewController:
         repo = ctx.get("repo")
         pr_number = ctx.get("pr_number")
         if installation_id and owner and repo and pr_number:
+            # Build minimal inline comments if possible
+            comments = self._build_inline_comments(ctx, review_text)
             self.gh_app.post_pull_request_review(
                 installation_id=int(installation_id),
                 owner=str(owner),
                 repo=str(repo),
                 pr_number=int(pr_number),
                 body=review_text,
+                comments=comments if comments else None,
             )
+
+    # -------- Inline comments --------
+    def _build_inline_comments(self, ctx: Dict[str, Any], review_text: str) -> list[dict]:
+        """Create a few safe inline comments to anchor the review.
+
+        This minimal strategy avoids complex diff mapping by attaching a single comment to the
+        first hunk of up to 3 changed files, placing it at the first added/modified line.
+        """
+        installation_id = ctx.get("installation_id")
+        owner = ctx.get("owner")
+        repo = ctx.get("repo")
+        pr_number = ctx.get("pr_number")
+        if not (installation_id and owner and repo and pr_number):
+            return []
+
+        try:
+            files = self.gh_app.get_pull_files(
+                int(installation_id), str(owner), str(repo), int(pr_number)
+            )
+        except (RuntimeError, ValueError, TypeError):
+            # If the file list cannot be fetched, fall back to summary-only review
+            return []
+
+        inline: list[dict] = []
+        # Very simple patch parser to find first added line position in the diff for each file
+        for f in files[:3]:  # limit comments to first 3 files to avoid noise
+            path = f.get("filename")
+            patch: str | None = f.get("patch")
+            if not path or not patch:
+                continue
+            position = self._first_added_position(patch)
+            if position is None:
+                continue
+            # Use a brief hint drawn from the overall review to make the inline actionable
+            snippet = (review_text or "").splitlines()[0:1]
+            hint = snippet[0] if snippet else "Consider improvements here."
+            inline.append({
+                "path": path,
+                "position": position,
+                "body": f"Suggestion: {hint}",
+            })
+        return inline
+
+        
+    def _first_added_position(self, patch: str) -> int | None:
+        """Return the first position index suitable for PR review comment.
+
+        GitHub's Pull Request Reviews API expects 'position' to be the index in the unified diff.
+        We count lines from the start of the patch hunk text, including context and headers.
+        """
+        pos = 0
+        found_any = False
+        for line in patch.splitlines():
+            pos += 1
+            # Skip file headers ---/+++ or hunk headers @@ ... @@ by counting them as positions
+            if line.startswith("@@"):
+                # Reset per-hunk position? For unified diff positions, we continue counting overall
+                # to match GitHub's expectation for the 'files' diff.
+                continue
+            if line.startswith("+") and not line.startswith("+++"):
+                found_any = True
+                break
+        return pos if found_any else None

@@ -141,3 +141,28 @@ class GitHubApp:
         if resp.status_code >= 300:
             raise RuntimeError(f"Posting PR review failed: {resp.status_code} {resp.text}")
         return resp.json()
+
+    def get_pull_files(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        per_page: int = 100,
+    ) -> list[Dict[str, Any]]:
+        """Fetch the list of changed files for a PR, including unified patches.
+
+        Note: For large PRs this may be paginated; we fetch up to `per_page` (default 100).
+        """
+        token = self.get_installation_token(installation_id)
+        url = f"{API_ROOT}/repos/{owner}/{repo}/pulls/{pr_number}/files?per_page={per_page}"
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": API_VER,
+        }
+        with httpx.Client(timeout=30) as client:
+            resp = client.get(url, headers=headers)
+        if resp.status_code >= 300:
+            raise RuntimeError(f"Fetching PR files failed: {resp.status_code} {resp.text}")
+        return resp.json()
