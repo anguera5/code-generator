@@ -21,3 +21,4 @@ Requires-Dist: langchain-chroma>=0.2.5
 Requires-Dist: pyjwt>=2.10.1
 Requires-Dist: requests>=2.32.4
 Requires-Dist: cryptography>=45.0.7
+Requires-Dist: python-multipart>=0.0.20
