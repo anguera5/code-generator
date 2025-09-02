@@ -12,6 +12,7 @@ from app.models.schemas import (
     ChemblSqlEditResponse,
     ChemblSqlReexecuteRequest,
     ChemblSqlReexecuteResponse,
+    CodeReviewByUrlRequest,
 )
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
@@ -95,6 +96,39 @@ async def code_review_webhook(
         + (" queued" if action in {"opened", "reopened"} else " skipped")
     )
     return CodeReviewResponse(review=ack)
+
+@router.post("/code-review/by-url", response_model=CodeReviewResponse)
+async def code_review_by_url(payload: CodeReviewByUrlRequest):
+    """Trigger a PR review by providing a GitHub Pull Request URL.
+
+    Accepts URLs like:
+      - https://github.com/<owner>/<repo>/pull/<number>
+      - https://github.com/<owner>/<repo>/pull/<number>/files
+    """
+    import re
+    m = re.match(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/.*)?$", payload.url.strip())
+    if not m:
+        raise HTTPException(status_code=422, detail="Provide a valid GitHub PR URL: https://github.com/<owner>/<repo>/pull/<number>")
+    owner, repo, pr_number = m.group(1), m.group(2), int(m.group(3))
+
+    # Build context mimicking webhook payload
+    ctx = {
+        "action": "opened",
+        "title": f"PR #{pr_number}",
+        "body": "",
+        "base_branch": None,
+        "head_branch": None,
+        "diff_url": f"https://github.com/{owner}/{repo}/pull/{pr_number}.diff",
+        "repository_full": f"{owner}/{repo}",
+        "owner": owner,
+        "repo": repo,
+        "pr_number": pr_number,
+        "installation_id": None,
+    }
+    diff_summary = code_review.diff_summary(ctx)
+    review_text = code_review.generate_review_text(ctx["title"], ctx.get("body", ""), diff_summary)
+    code_review.try_post_review(ctx, review_text)
+    return CodeReviewResponse(review=f"queued: {owner}/{repo}#{pr_number}")
 
 @router.post("/fpf-rag/chat", response_model=FpfRagResponse)
 async def fpf_rag_chat(payload: FpfRagRequest):

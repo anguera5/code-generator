@@ -36,6 +36,9 @@ class PullRequestInfo(BaseModel):
 class CodeReviewResponse(BaseModel):
     review: str
 
+class CodeReviewByUrlRequest(BaseModel):
+    url: str
+
 class FpfRagRequest(BaseModel):
     prompt: str = Field(..., min_length=0, max_length=8000)
     api_key: str
