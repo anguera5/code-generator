@@ -10,6 +10,28 @@
               Ask questions about food packaging safety. Replies are grounded on FPF content using
               <strong>text-embedding-3-large</strong> and generated with <strong>gpt-4.1-mini</strong>.
             </p>
+            <!-- Flow strip to show the pipeline -->
+            <div class="flow-strip mt-3">
+              <div class="step">
+                <v-icon icon="mdi-comment-question-outline" size="24" />
+                <div class="label">Question</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-magnify" size="24" />
+                <div class="label">Retrieve</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-brain" size="24" />
+                <div class="label">LLM</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-message-text-outline" size="24" />
+                <div class="label">Answer</div>
+              </div>
+            </div>
           </div>
           <div class="toolbar d-flex ga-3 align-center flex-wrap">
             <v-chip v-if="!apiKeyStore.apiKey" color="warning" variant="tonal" class="pill">Enter API key (top bar)</v-chip>
@@ -181,4 +203,10 @@ onMounted(() => {
 .disc-text { color: #fde68a; }
 .disc-title { font-weight: 800; letter-spacing: .3px; text-transform: uppercase; font-size: .78rem; opacity: .95; color: #fde68a; }
 .disc-body { font-size: .9rem; opacity: .95; line-height: 1.35; margin-top: 2px; color: #fde68a; }
+/* Flow strip styles */
+.flow-strip { display:flex; align-items:center; justify-content:center; gap: 10px; max-width: 1200px; margin: 8px auto 4px; padding: 0 8px; }
+.flow-strip .step { display:flex; flex-direction:column; align-items:center; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); min-width: 90px; }
+.flow-strip .label { font-size: 0.8rem; opacity: .9; }
+.flow-strip .arrow { opacity: .6; }
+@media (max-width: 720px) { .flow-strip { flex-wrap: wrap; row-gap: 6px; } .flow-strip .arrow { display:none; } }
 </style>

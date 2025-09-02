@@ -4,7 +4,8 @@ This frontend now supports hosting multiple self-contained mini-app modules ("pr
 
 Current modules:
 1. Code Generator (`/code-generator`): Generate code, tests, and docs via LLM backend.
-2. ChEMBL SQL RAG (`/chembl-sql-rag`): Plan → synthesize → execute SQLite queries against a local ChEMBL snapshot, with sessioned edits and LIMIT re-execution.
+2. Code Review (`/code-review`): LLM-assisted PR reviews via GitHub webhook or PR URL try-out.
+3. ChEMBL SQL RAG (`/chembl-sql-rag`): Plan → synthesize → execute SQLite queries against a local ChEMBL snapshot, with sessioned edits and LIMIT re-execution.
 
 ## Dev
 1. `npm ci`
@@ -43,6 +44,11 @@ That's it—hot reload will expose the new module.
 * Keep cross-module shared utilities in a neutral folder (e.g. `src/lib/`).
 * Avoid tight coupling: modules should not import each other's internals directly.
 * If you need global state, introduce Pinia stores under `src/stores/` (already dependency-installed).
+
+### Code Review UX
+- Setup cards (Requirements, Webhook Setup, What to expect) styled to match ChEMBL feature strips.
+- “Ready to see it in action?” and “Try with PR URL” cards aligned side-by-side on desktop.
+- PR URL triggers `POST /api/code-review/by-url` and displays status via the global notifier.
 
 ### ChEMBL SQL RAG UX
 - Results-first layout with scrollable table

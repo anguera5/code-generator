@@ -83,6 +83,17 @@
         <div class="s">Local SQLite snapshot for speed</div>
       </div>
     </div>
+  <!-- Info section moved above input panel for prominence -->
+  <v-alert
+      class="info-banner mx-auto mt-4"
+      style="max-width: 1200px;"
+      variant="tonal"
+      type="info"
+      density="comfortable"
+    >
+      Results may take a little time to appear. This is perfectly normal, since the ChEMBL database is very large and the app runs on limited resources. Thanks for your patience — the results will be worth the wait!
+    </v-alert>
+
   <v-card class="pa-4 mb-6 glass-panel hover-raise mx-auto mt-4" elevation="2" max-width="1200">
       <div class="d-flex justify-center">
         <div class="input-wrap">
@@ -145,16 +156,7 @@
       </v-expand-transition>
     </v-card>
 
-    <!-- Info section outside the input panel -->
-    <v-alert
-      class="mt-4 mx-auto"
-      style="max-width: 1200px;"
-      variant="tonal"
-      type="info"
-      density="comfortable"
-    >
-      Results may take a little time to appear. This is perfectly normal, since the ChEMBL database is very large and the app runs on limited resources. Thanks for your patience — the results will be worth the wait!
-    </v-alert>
+  <!-- (Info banner moved above) -->
 
   <!-- No-context dialog (elegant notice) -->
   <v-dialog v-model="showNoContextDialog" max-width="640" scrim="rgba(12, 10, 25, 0.6)">
@@ -1025,4 +1027,6 @@ function revealDynamic() {
   filter: blur(22px); opacity: .9; animation: ex-glow 14s ease-in-out infinite; }
 .noctx-title { position: relative; font-weight: 800; font-size: 1.1rem; display:flex; align-items:center; letter-spacing: .2px; }
 .noctx-sub { position: relative; opacity: .9; margin-top: 6px; font-size: .92rem; }
+/* Info banner styling */
+.info-banner { border-radius: 12px; border: 1px solid rgba(33,150,243,0.35); background: linear-gradient(180deg, rgba(33,150,243,0.12), rgba(33,150,243,0.04)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04); }
 </style>

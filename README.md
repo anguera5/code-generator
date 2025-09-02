@@ -107,10 +107,12 @@ Timeouts:
 ### Code Review (`/code-review`)
 - What it does: Produces an LLM‑assisted review for pull requests—summarizes changes, flags risks, and suggests improvements.
 - Key features:
-  - Accepts GitHub‑style webhook payloads; works with minimal metadata.
-  - Highlights testing gaps and potential performance or security concerns.
+  - Works via GitHub Webhook (PR opened/reopened) or direct PR URL input from the UI.
+  - Inline comments on added lines when applicable; falls back to summary‑only if positions are rejected.
+  - Comments are posted by `@anguera5`. Scope: public repositories.
 - API:
-  - `POST /api/code-review/webhook` → `{ review }`
+  - `POST /api/code-review/webhook` → `{ review }` (set GitHub Webhook to Pull requests ONLY; secret optional)
+  - `POST /api/code-review/by-url { url }` → `{ review }` (validate https://github.com/<owner>/<repo>/pull/<number>)
 - Why it matters: Maintainers can triage faster and provide more consistent feedback, especially in busy OSS repos. It helps newcomers understand project standards and good practices.
 
 ### FPF RAG (`/fpf-rag`)

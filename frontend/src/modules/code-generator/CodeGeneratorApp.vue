@@ -10,6 +10,33 @@
               Describe what you need and let the model craft clean, documented code. We call OpenAI’s
               <strong>gpt-4.1-mini</strong> for code and use <strong>text-embedding-3-large</strong> for RAG in other modules.
             </p>
+            <!-- Flow strip below the title for quick mental model -->
+            <div class="flow-strip mt-3">
+              <div class="step">
+                <v-icon icon="mdi-comment-text-outline" size="24" />
+                <div class="label">Prompt</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-brain" size="24" />
+                <div class="label">LLM</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-code-tags" size="24" />
+                <div class="label">Code</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-file-document-outline" size="24" />
+                <div class="label">Docs</div>
+              </div>
+              <div class="arrow"><v-icon icon="mdi-arrow-right" /></div>
+              <div class="step">
+                <v-icon icon="mdi-clipboard-check-outline" size="24" />
+                <div class="label">Tests</div>
+              </div>
+            </div>
           </div>
           <div class="toolbar d-flex ga-3 align-center flex-wrap">
             <v-select
@@ -29,6 +56,7 @@
 
   <div class="py-6"></div>
     <!-- Knowledge cards: how it works, use-cases, tutorial -->
+  <div class="content-wrap">
   <v-row class="mt-6" align="stretch">
       <v-col cols="12" md="4">
         <v-card class="glass-panel hover-raise h-100">
@@ -84,10 +112,10 @@
           </v-card-item>
         </v-card>
       </v-col>
-    </v-row>
-    <v-row>
+  </v-row>
+  <v-row>
       <v-col cols="12" md="6">
-        <div class="glass-panel p-4 hover-raise mt-4" style="height: 100%">
+        <div class="glass-panel p-4 hover-raise" style="height: 100%">
           <v-textarea
             v-model="prompt"
             label="Describe what to generate"
@@ -121,6 +149,7 @@
         </div>
       </v-col>
     </v-row>
+  </div>
 
 
   </v-container>
@@ -296,4 +325,12 @@ onBeforeUnmount(() => {
   .panel-actions { flex-direction: column; align-items: stretch; }
   .panel-actions > * { width: 100%; }
 }
+/* Flow strip styles (shared look with ChEMBL module) */
+.flow-strip { display:flex; align-items:center; justify-content:center; gap: 10px; max-width: 1200px; margin: 8px auto 4px; padding: 0 8px; }
+.flow-strip .step { display:flex; flex-direction:column; align-items:center; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); min-width: 90px; }
+.flow-strip .label { font-size: 0.8rem; opacity: .9; }
+.flow-strip .arrow { opacity: .6; }
+@media (max-width: 720px) { .flow-strip { flex-wrap: wrap; row-gap: 6px; } .flow-strip .arrow { display:none; } }
+/* Match other modules width */
+.content-wrap { max-width: 1200px; margin: 0 auto; padding: 0 8px; }
 </style>

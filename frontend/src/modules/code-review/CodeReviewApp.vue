@@ -29,22 +29,66 @@
 
     <div class="py-4"></div>
 
-    <!-- Feature strip -->
-    <div class="feature-strip">
-      <div class="feature">
-        <v-icon icon="mdi-lightbulb-on-outline" color="primary" size="24" />
-        <div class="t">LLM summary</div>
-        <div class="s">High-signal, concise feedback</div>
-      </div>
-      <div class="feature">
-        <v-icon icon="mdi-format-line-style" color="secondary" size="24" />
-        <div class="t">Inline comments</div>
-        <div class="s">On added lines when applicable</div>
-      </div>
-      <div class="feature">
-        <v-icon icon="mdi-account-badge-outline" color="primary" size="24" />
-        <div class="t">Identity</div>
-        <div class="s">Comments by @anguera5</div>
+    <!-- CTA: moved directly under title block -->
+    <div class="content-wrap">
+      <v-row class="mt-2 cta-row" align="stretch">
+        <v-col cols="12" md="6">
+          <v-card class="cta-card h-100">
+            <v-card-text class="d-flex align-center ga-3">
+              <v-icon icon="mdi-rocket-launch-outline" size="26" />
+              <div>
+                <div class="cta-title">Ready to see it in action?</div>
+                <div class="cta-sub">Open a Pull Request and watch the AI review appear from <strong>@anguera5</strong>.</div>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-card class="cta-card h-100">
+            <v-card-text>
+              <div class="d-flex align-center ga-3 mb-2">
+                <v-icon icon="mdi-open-in-new" size="24" />
+                <div class="cta-title">Or try it out directly with your Pull Request URL</div>
+              </div>
+              <div class="try-row">
+                <v-text-field
+                  v-model="prUrl"
+                  label="https://github.com/owner/repo/pull/123"
+                  variant="outlined"
+                  density="comfortable"
+                  hide-details
+                  class="try-input"
+                />
+                <v-btn color="primary" class="try-btn" @click="submitPrUrl">
+                  <v-icon icon="mdi-send" size="18" class="mr-1" />
+                  Send
+                </v-btn>
+              </div>
+              <div class="hint mt-2 op-80">We’ll verify it’s a PR URL and trigger the same review flow as the webhook.</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+    </div>
+
+  <!-- Feature strip aligned with cards -->
+    <div class="content-wrap">
+      <div class="feature-strip">
+        <div class="feature">
+          <v-icon icon="mdi-lightbulb-on-outline" color="primary" size="24" />
+          <div class="t">LLM summary</div>
+          <div class="s">High-signal, concise feedback</div>
+        </div>
+        <div class="feature">
+          <v-icon icon="mdi-format-line-style" color="secondary" size="24" />
+          <div class="t">Inline comments</div>
+          <div class="s">On added lines when applicable</div>
+        </div>
+        <div class="feature">
+          <v-icon icon="mdi-account-badge-outline" color="primary" size="24" />
+          <div class="t">Identity</div>
+          <div class="s">Comments by @anguera5</div>
+        </div>
       </div>
     </div>
 
@@ -78,14 +122,14 @@
                   <span>GitHub Webhook Setup</span>
                 </v-card-title>
                 <v-card-text>
-                  <ol class="step-list mb-0 small">
-                    <li>Repo → Settings → Webhooks → <strong>Add webhook</strong>.</li>
-                    <li>Payload URL: <code>{{ baseUrl }}/api/code-review/webhook</code></li>
-                    <li>Content type: <code>application/json</code></li>
-                    <li>Secret: <strong>leave it empty</strong>.</li>
-                    <li>Events: choose <em>Let me select individual events</em> → check <strong>Pull requests ONLY</strong>.</li>
-                    <li>Save webhook.</li>
-                  </ol>
+                  <ul class="mini-list op-90 mb-0">
+                    <li><span class="num-badge">1</span><div class="li-text">Repo → Settings → Webhooks → <strong>Add webhook</strong>.</div></li>
+                    <li><span class="num-badge">2</span><div class="li-text">Payload URL: <code>{{ baseUrl }}/api/code-review/webhook</code></div></li>
+                    <li><span class="num-badge">3</span><div class="li-text">Content type: <code>application/json</code></div></li>
+                    <li><span class="num-badge">4</span><div class="li-text">Secret: <strong>leave it empty</strong>.</div></li>
+                    <li><span class="num-badge">5</span><div class="li-text">Events: choose <em>Let me select individual events</em> → check <strong>Pull requests ONLY</strong>.</div></li>
+                    <li><span class="num-badge">6</span><div class="li-text">Save webhook.</div></li>
+                  </ul>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -109,45 +153,7 @@
             </v-col>
           </v-row>
 
-          <!-- CTA + Direct PR URL side-by-side -->
-          <v-row class="mt-2" align="stretch">
-            <v-col cols="12" md="6">
-              <v-card class="cta-card h-100">
-                <v-card-text class="d-flex align-center ga-3">
-                  <v-icon icon="mdi-rocket-launch-outline" size="26" />
-                  <div>
-                    <div class="cta-title">Ready to see it in action?</div>
-                    <div class="cta-sub">Open a Pull Request and watch the AI review appear from <strong>@anguera5</strong>.</div>
-                  </div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-card class="cta-card h-100">
-                <v-card-text>
-                  <div class="d-flex align-center ga-3 mb-2">
-                    <v-icon icon="mdi-open-in-new" size="24" />
-                    <div class="cta-title">Or try it out directly with your Pull Request URL</div>
-                  </div>
-                  <div class="try-row">
-                    <v-text-field
-                      v-model="prUrl"
-                      label="https://github.com/owner/repo/pull/123"
-                      variant="outlined"
-                      density="comfortable"
-                      hide-details
-                      class="try-input"
-                    />
-                    <v-btn color="primary" class="try-btn" @click="submitPrUrl">
-                      <v-icon icon="mdi-send" size="18" class="mr-1" />
-                      Send
-                    </v-btn>
-                  </div>
-                  <div class="hint mt-2 op-80">We’ll verify it’s a PR URL and trigger the same review flow as the webhook.</div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
+          <!-- CTA row moved above under title block -->
         </div>
       </v-col>
     </v-row>
@@ -195,15 +201,15 @@ code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px;
 pre { background: rgba(255,255,255,0.04); padding: 12px; border-radius: 10px; }
 
 /* Simple flow and feature strip styles to mirror chembl module */
-.flow-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.flow-strip { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
 .flow-strip .step { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); }
 .flow-strip .label { font-size: 0.8rem; opacity: 0.9; }
-.feature-strip { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; max-width: 1200px; margin: 0 auto 16px; padding: 0 8px; }
-.feature { display:flex; flex-direction:column; align-items:flex-start; gap: 4px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); }
+.feature-strip { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; max-width: 1200px; margin: 0 auto 16px; padding: 0 8px; }
+.feature { display:flex; flex-direction:column; align-items:center; text-align:center; gap: 4px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); }
 .feature .t { font-weight: 700; font-size: 0.95rem; }
 .feature .s { font-size: 0.8rem; opacity: .8; }
-@media (max-width: 900px) { .feature-strip { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-@media (max-width: 520px) { .feature-strip { grid-template-columns: 1fr; } }
+@media (max-width: 1024px) { .feature-strip { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 560px) { .feature-strip { grid-template-columns: 1fr; } }
 
 /* Elegant cards */
 .pretty-card { position: relative; overflow: hidden; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 6px 24px rgba(0,0,0,0.25); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
@@ -218,8 +224,11 @@ pre { background: rgba(255,255,255,0.04); padding: 12px; border-radius: 10px; }
 /* Lists */
 .checklist { list-style: none; padding-left: 0; }
 .checklist li { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); }
-.step-list { padding-left: 16px; }
-.step-list li { margin: 10px 0; background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 10px; }
+/* Numbered mini list (like how-it-works) */
+.mini-list { list-style: none; padding-left: 0; font-size: 0.9rem; }
+.mini-list li { margin: 10px 0; display:flex; align-items:flex-start; gap: 10px; }
+.mini-list .li-text { flex: 1 1 auto; min-width: 0; }
+.num-badge { flex: 0 0 auto; display:inline-flex; align-items:center; justify-content:center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.78rem; font-weight: 800; color:#fff; background: rgba(154,95,255,0.38); border: 1px solid rgba(255,255,255,0.18); box-sizing: border-box; }
 
 /* CTA */
 .cta-card { border-radius: 14px; background: linear-gradient(90deg, rgba(98,0,234,0.2), rgba(3,169,244,0.2)); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 30px rgba(0,0,0,0.32); }
@@ -228,6 +237,8 @@ pre { background: rgba(255,255,255,0.04); padding: 12px; border-radius: 10px; }
 
 /* Layout wrap to match title width */
 .content-wrap { max-width: 1200px; margin: 0 auto; padding: 0 8px; }
+/* Extra spacing beneath the PR URL CTA row */
+.cta-row { margin-bottom: 24px; }
 
 /* Try PR URL row */
 .try-row { display:flex; gap:10px; align-items:center; }
