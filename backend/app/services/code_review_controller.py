@@ -79,11 +79,10 @@ class CodeReviewController:
         return self.llm.generate_code_review(title, body, diff_summary)
 
     def try_post_review(self, ctx: Dict[str, Any], review_text: str) -> None:
-        installation_id = ctx.get("installation_id")
         owner = ctx.get("owner")
         repo = ctx.get("repo")
         pr_number = ctx.get("pr_number")
-        if installation_id and owner and repo and pr_number:
+        if owner and repo and pr_number:
             # Build minimal inline comments if possible
             comments = self._build_inline_comments(ctx, review_text)
             print(f"[CODE-REVIEW] Inline comments prepared: {len(comments)}")
@@ -92,7 +91,6 @@ class CodeReviewController:
                 print(f"[CODE-REVIEW] Inline preview (first 3): {preview}")
             try:
                 self.gh_app.post_pull_request_review(
-                    installation_id=int(installation_id),
                     owner=str(owner),
                     repo=str(repo),
                     pr_number=int(pr_number),
@@ -105,7 +103,6 @@ class CodeReviewController:
                 if "422" in str(e):
                     print("[CODE-REVIEW] Inline comments rejected by GitHub (422). Retrying without inline comments.")
                     self.gh_app.post_pull_request_review(
-                        installation_id=int(installation_id),
                         owner=str(owner),
                         repo=str(repo),
                         pr_number=int(pr_number),
@@ -123,17 +120,14 @@ class CodeReviewController:
         We number the unified diff lines to match GitHub's expected 'position' and provide the set
         of allowed positions (only '+' lines). The LLM must choose positions from that set.
         """
-        installation_id = ctx.get("installation_id")
         owner = ctx.get("owner")
         repo = ctx.get("repo")
         pr_number = ctx.get("pr_number")
-        if not (installation_id and owner and repo and pr_number):
+        if not (owner and repo and pr_number):
             return []
 
         try:
-            files = self.gh_app.get_pull_files(
-                int(installation_id), str(owner), str(repo), int(pr_number)
-            )
+            files = self.gh_app.get_pull_files(str(owner), str(repo), int(pr_number))
         except (RuntimeError, ValueError, TypeError):
             # If the file list cannot be fetched, fall back to summary-only review
             return []
