@@ -17,3 +17,5 @@ Requires-Dist: chromadb>=1.0.20
 Requires-Dist: notebook>=7.4.5
 Requires-Dist: lxml>=6.0.0
 Requires-Dist: langchain-chroma>=0.2.5
+Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: requests>=2.32.4

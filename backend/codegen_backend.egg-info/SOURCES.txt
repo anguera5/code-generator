@@ -6,6 +6,7 @@ app/api/routes.py
 app/core/config.py
 app/core/prompts.py
 app/models/schemas.py
+app/services/chembl_sql_pipeline.py
 app/services/llm_model.py
 app/services/rag_model.py
 codegen_backend.egg-info/PKG-INFO

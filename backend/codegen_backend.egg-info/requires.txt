@@ -11,3 +11,5 @@ chromadb>=1.0.20
 notebook>=7.4.5
 lxml>=6.0.0
 langchain-chroma>=0.2.5
+pyjwt>=2.10.1
+requests>=2.32.4

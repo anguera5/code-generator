@@ -16,10 +16,14 @@ from app.models.schemas import (
 from app.services.llm_model import LLMModel
 from app.core.config import get_settings
 from typing import Any
+from app.services.github_app import GitHubApp
+from app.services.code_review_controller import CodeReviewController
 
 router = APIRouter()
 settings = get_settings()
 llm = LLMModel()
+github_app = GitHubApp.from_env()
+code_review = CodeReviewController(llm, github_app)
 
 @router.get("/")
 def root():
@@ -43,61 +47,40 @@ async def generate_docs(payload: BasicRequest):
 
 
 @router.post("/code-review/webhook", response_model=CodeReviewResponse)
-async def code_review_webhook(request: Request, payload: str | None = Form(None), payload_q: str | None = Query(None), background_tasks: BackgroundTasks | None = None):
-    """Accept a pull request webhook payload and return an LLM review.
+async def code_review_webhook(
+    request: Request,
+    payload: str | None = Form(None),
+    payload_q: str | None = Query(None),
+    background_tasks: BackgroundTasks | None = None,
+):
+    """Webhook for PR reviews: verifies signature, generates review, posts as GitHub App bot."""
+    raw_body: bytes = await request.body()
+    # Verify signature if configured
+    code_review.verify_signature_or_raise(dict(request.headers), raw_body)
 
-    Supports:
-    - application/json body (standard GitHub webhook)
-    - application/x-www-form-urlencoded with a single field 'payload' containing JSON (some proxies)
-    """
-    payload_obj: dict | None = None
-    # Prefer explicit form/query 'payload' fields if present
-    raw_payload = payload or payload_q
-    if raw_payload:
-        try:
-            import json as _json
-            payload_obj = _json.loads(str(raw_payload))
-        except Exception as e:
-            raise HTTPException(status_code=422, detail=f"Invalid JSON in 'payload' field: {e}") from e
-    else:
-        # Try JSON body if not provided via form/query
-        try:
-            maybe = await request.json()
-            if isinstance(maybe, dict):
-                payload_obj = maybe
-        except Exception:
-            payload_obj = None
-    if payload_obj is None:
-        raise HTTPException(status_code=422, detail="Input should be a valid JSON object or a form field 'payload' with JSON")
+    payload_obj = code_review.parse_payload(raw_body, payload or payload_q)
+    ctx = code_review.extract_pr_context(payload_obj)
+    title = ctx["title"]
+    base_branch = ctx.get("base_branch")
+    head_branch = ctx.get("head_branch")
+    diff_url = ctx.get("diff_url")
+    diff_summary = code_review.diff_summary(ctx)
 
-    pr = payload_obj.get("pull_request") or {}
-    title = pr.get("title") or "(untitled PR)"
-    body = pr.get("body") or ""
-    base_branch = (pr.get("base") or {}).get("ref")
-    head_branch = (pr.get("head") or {}).get("ref")
-    diff_url = pr.get("diff_url")
-    repository = (payload_obj.get("repository") or {}).get("full_name")
-
-    diff_summary = (
-    f"Repository: {repository}\nBase: {base_branch} -> Head: {head_branch}\nDiff URL: {diff_url}"
-    if (repository or base_branch or head_branch or diff_url)
-    else "(no diff metadata provided)"
-    )
-    # Run the LLM review in the background to avoid webhook timeouts
-    def _run_async_review(t: str, b: str, ds: str) -> None:
-        try:
-            txt = llm.generate_code_review(t, b, ds)
-            print("[CODE-REVIEW] Generated review for:", t)
-            print(txt)
-        except Exception as ex:
-            print("[CODE-REVIEW] Review generation failed:", ex)
+    def _run_review_task() -> None:
+        review_text = code_review.generate_review_text(title, ctx.get("body", ""), diff_summary)
+        print("[CODE-REVIEW] Generated review for:", title)
+        code_review.try_post_review(ctx, review_text)
+        print(
+            f"[CODE-REVIEW] Post attempted on {ctx.get('owner')}/{ctx.get('repo')}#{ctx.get('pr_number')}"
+        )
 
     if background_tasks is not None:
-        background_tasks.add_task(_run_async_review, title, body, diff_summary)
+        background_tasks.add_task(_run_review_task)
 
     ack = (
         f"Received webhook for PR: {title}. Base: {base_branch or '-'} -> Head: {head_branch or '-'}"
         + (" (diff queued)" if diff_url else "")
+        + (" [bot post queued]" if ctx.get("installation_id") else " [no installation id]")
     )
     return CodeReviewResponse(review=ack)
 
@@ -134,7 +117,6 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
         print(response)
         return response
     except ValueError as e:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
@@ -165,11 +147,9 @@ async def chembl_reexecute(payload: ChemblSqlReexecuteRequest):
     llm.check_model_running(payload.api_key)
     prev = llm.chembl_session_get(payload.memory_id)
     if not prev:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Unknown memory_id; run a query first.")
     sql = (prev.get("sql") or "").strip()
     if not sql:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="No SQL present for this session.")
     cols, rows = llm.chembl_reexecute(payload.memory_id, payload.limit, payload.api_key)
     return ChemblSqlReexecuteResponse(columns=cols, rows=rows)
