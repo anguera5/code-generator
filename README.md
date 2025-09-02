@@ -165,3 +165,5 @@ Frontend (local):
 
 1. Create `src/modules/<your-module>/` with a root `<YourModuleApp>.vue`.
 2. Register a lazy route in `src/router.ts` and metadata in `src/modules/index.ts`.
+
+my_password=12321
