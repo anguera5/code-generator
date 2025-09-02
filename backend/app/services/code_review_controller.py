@@ -36,11 +36,16 @@ class CodeReviewController:
         if not self.gh_app.verify_signature(headers, body):
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
+    def signature_valid(self, headers: Dict[str, str], body: bytes) -> bool:
+        """Non-raising check for webhook signature validity."""
+        return self.gh_app.verify_signature(headers, body)
+
     def extract_pr_context(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         pr = payload.get("pull_request") or {}
         repo_obj = payload.get("repository") or {}
         owner_obj = (repo_obj.get("owner") or {})
         context = {
+            "action": payload.get("action"),
             "title": pr.get("title") or "(untitled PR)",
             "body": pr.get("body") or "",
             "base_branch": (pr.get("base") or {}).get("ref"),

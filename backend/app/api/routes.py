@@ -53,8 +53,9 @@ async def code_review_webhook(
 ):
     """Webhook for PR reviews: verifies signature, generates review, posts as GitHub App bot."""
     raw_body: bytes = await request.body()
-    # Verify signature if configured
-    code_review.verify_signature_or_raise(dict(request.headers), raw_body)
+    # Verify signature if configured. If invalid, return a 200 JSON response GitHub accepts, but skip processing.
+    if not code_review.signature_valid(dict(request.headers), raw_body):
+        return CodeReviewResponse(review="signature_invalid: ignored")
 
     # Pull optional 'payload' from query or form for proxies that wrap JSON
     payload_str = request.query_params.get("payload")
@@ -66,6 +67,7 @@ async def code_review_webhook(
             payload_str = None
     payload_obj = code_review.parse_payload(raw_body, payload_str)
     ctx = code_review.extract_pr_context(payload_obj)
+    action = (ctx.get("action") or "").lower()
     title = ctx["title"]
     base_branch = ctx.get("base_branch")
     head_branch = ctx.get("head_branch")
@@ -80,12 +82,16 @@ async def code_review_webhook(
             f"[CODE-REVIEW] Post attempted on {ctx.get('owner')}/{ctx.get('repo')}#{ctx.get('pr_number')}"
         )
 
-    background_tasks.add_task(_run_review_task)
+    # Only trigger for PR opened or reopened
+    if action in {"opened", "reopened"}:
+        background_tasks.add_task(_run_review_task)
 
     ack = (
-        f"Received webhook for PR: {title}. Base: {base_branch or '-'} -> Head: {head_branch or '-'}"
-        + (" (diff queued)" if diff_url else "")
-        + (" [bot post queued]" if ctx.get("installation_id") else " [no installation id]")
+        f"ok: pr={title} base={base_branch or '-'} head={head_branch or '-'}"
+        + (" diff" if diff_url else "")
+        + (" bot" if ctx.get("installation_id") else "")
+        + (f" action={action}" if action else "")
+        + (" queued" if action in {"opened", "reopened"} else " skipped")
     )
     return CodeReviewResponse(review=ack)
 
