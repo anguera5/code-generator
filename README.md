@@ -14,7 +14,7 @@ The frontend provides a single shell UI with a navigation drawer; each module is
 - `backend/` — FastAPI service, LLM clients, RAG pipelines, and ChEMBL SQL orchestration.
 - `frontend/` — Vue 3 app with Vuetify and Monaco, multi‑module router/shell.
 - `docker-compose.yml` — Local orchestration.
-- `app.log`, `chroma.sqlite3` — Local artifacts.
+- Backend logs under `/var/log/genai-portfolio` (daily‑rotated, UTC).
 
 ## Prerequisites
 
@@ -33,6 +33,11 @@ The frontend provides a single shell UI with a navigation drawer; each module is
 3. Open http://localhost:5173
 
 The frontend proxies `/api` to the backend service in Docker.
+
+Logs:
+
+- Backend writes logs to `/var/log/genai-portfolio` (same path inside container and host).
+- Files rotate daily at UTC midnight; two weeks retained. Timestamps are UTC.
 
 ## Frontend (Vue 3 + Vite + Vuetify)
 
@@ -157,6 +162,10 @@ Backend (local):
 
 1. Create venv and install: `pip install -e .`
 2. Run: `uvicorn app.main:app --reload`
+
+Logging locally (without Docker):
+
+- Logs will be written to `/var/log/genai-portfolio`. Ensure your user has write permissions or run with appropriate privileges.
 
 Frontend (local):
 

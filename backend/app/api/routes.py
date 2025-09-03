@@ -19,8 +19,10 @@ from app.core.config import get_settings
 from typing import Any
 from app.services.github_app import GitHubApp
 from app.services.code_review_controller import CodeReviewController
+from app.core.logger import get_logger
 
 router = APIRouter()
+log = get_logger(__name__)
 settings = get_settings()
 llm = LLMModel()
 github_app = GitHubApp()
@@ -28,21 +30,25 @@ code_review = CodeReviewController(llm, github_app)
 
 @router.get("/")
 def root():
+    log.info("Root endpoint hit")
     return {"message": "Welcome to the GenAI API. Use /generate, /tests, or /docs endpoints."}
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_code(payload: GenerateRequest):
+    log.info("[QUERY][generate] lang=%s prompt.len=%d", payload.language, len(payload.prompt or ""))
     text = llm.generate_code(payload.prompt, payload.language, payload.api_key)
     return GenerateResponse(code=text, language=payload.language)
 
 
 @router.post("/tests", response_model=BasicResponse)
 async def generate_tests(payload: BasicRequest):
+    log.info("[QUERY][tests] code.len=%d", len(payload.code or ""))
     text = llm.generate_tests(payload.code)
     return BasicResponse(code=text)
 
 @router.post("/docs", response_model=BasicResponse)
 async def generate_docs(payload: BasicRequest):
+    log.info("[QUERY][docs] code.len=%d", len(payload.code or ""))
     text = llm.generate_docs(payload.code)
     return BasicResponse(code=text)
 
@@ -78,10 +84,13 @@ async def code_review_webhook(
 
     def _run_review_task() -> None:
         review_text = code_review.generate_review_text(title, ctx.get("body", ""), diff_summary)
-        print("[CODE-REVIEW] Generated review for:", title)
+        log.info("[CODE-REVIEW] Generated review for: %s", title)
         code_review.try_post_review(ctx, review_text)
-        print(
-            f"[CODE-REVIEW] Post attempted on {ctx.get('owner')}/{ctx.get('repo')}#{ctx.get('pr_number')}"
+        log.info(
+            "[CODE-REVIEW] Post attempted on %s/%s#%s",
+            ctx.get("owner"),
+            ctx.get("repo"),
+            ctx.get("pr_number"),
         )
 
     # Only trigger for PR opened or reopened
@@ -105,6 +114,7 @@ async def code_review_by_url(payload: CodeReviewByUrlRequest):
       - https://github.com/<owner>/<repo>/pull/<number>
       - https://github.com/<owner>/<repo>/pull/<number>/files
     """
+    log.info("[QUERY][code-review/by-url] url=%s", payload.url)
     import re
     m = re.match(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/.*)?$", payload.url.strip())
     if not m:
@@ -132,6 +142,7 @@ async def code_review_by_url(payload: CodeReviewByUrlRequest):
 
 @router.post("/fpf-rag/chat", response_model=FpfRagResponse)
 async def fpf_rag_chat(payload: FpfRagRequest):
+    log.info("[QUERY][fpf-rag] config=%s prompt.len=%d", payload.config_key, len(payload.prompt or ""))
     text = llm.generate_rag_response(payload.prompt, payload.api_key, payload.config_key)
     return FpfRagResponse(reply=text)
 
@@ -141,6 +152,7 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
 
     Returns: { sql, related_tables, columns, rows, retries, repaired, no_context, not_chembl, chembl_reason }
     """
+    log.info("[QUERY][chembl/run] prompt.len=%d", len(payload.prompt or ""))
     try:
         state: dict[str, Any] = llm.run_chembl_full(payload.prompt, limit=100, api_key=payload.api_key)
         # Attach prompt and persist session if memory_id provided
@@ -160,7 +172,13 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
             "optimized_guidelines": state.get("optimized_guidelines", ""),
             "memory_id": payload.memory_id or None,
         }
-        print(response)
+        log.debug(
+            "[CHEMBL][run] response summary: cols=%d rows=%d retries=%d repaired=%s",
+            len(response.get("columns", [])),
+            len(response.get("rows", [])),
+            int(response.get("retries", 0)),
+            bool(response.get("repaired", False)),
+        )
         return response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

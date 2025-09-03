@@ -9,6 +9,7 @@ from typing import Any, List, Tuple, TypedDict
 import uuid
 
 from langgraph.graph import StateGraph, END
+import logging
 
 
 DB_PATH = os.getenv("CHEMBL_SQLITE_PATH", "app/chembl/chembl_35.db")
@@ -76,7 +77,7 @@ class ChemblSqlPipeline:
     def _log_step(self, step: str, **fields: Any) -> None:
         parts = [f"{k}={v}" for k, v in fields.items() if v is not None]
         message = " | ".join(parts)
-        print(f"[CHEMBL][pipe][{step}] {message}")
+        logging.getLogger(__name__).info("[CHEMBL][pipe][%s] %s", step, message)
 
     # ----------------- Public API -----------------
     def plan_and_synthesize(self, prompt: str) -> Tuple[str, List[dict]]:
