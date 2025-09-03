@@ -83,6 +83,7 @@ class LLMModel:
 
     # ---------------------- Code Generation ----------------------
     def generate_code(self, prompt: str, language: str, api_key: str):
+        logger.info("[LLM][generate] lang=%s prompt.len=%d", language, len(prompt or ""))
         self.check_model_running(api_key)
         if not prompt or len(prompt) < 1 or len(prompt) > 8000:
             raise HTTPException(status_code=400, detail="Please introduce code-related prompt")
@@ -93,6 +94,7 @@ class LLMModel:
 
     # ---------------------- Tests Generation ----------------------
     def generate_tests(self, code: str):
+        logger.info("[LLM][tests] code.len=%d", len(code or ""))
         if not self.llm:
             raise HTTPException(status_code=400, detail="Model not initialized; generate code first or supply API key.")
         processed_prompt = generate_test_template(code)
@@ -102,6 +104,7 @@ class LLMModel:
 
     # ---------------------- Documentation Generation ----------------------
     def generate_docs(self, code: str):
+        logger.info("[LLM][docs] code.len=%d", len(code or ""))
         if not self.llm:
             raise HTTPException(status_code=400, detail="Model not initialized; generate code first or supply API key.")
         processed_prompt = generate_documentation_template(code)
@@ -111,6 +114,7 @@ class LLMModel:
 
     # ---------------------- Code Review Generation ----------------------
     def generate_code_review(self, title: str, body: str | None, diff_summary: str | None):
+        logger.info("[LLM][code-review] title.len=%d body.len=%d", len(title or ""), len(body or ""))
         if not self.llm:
             raise HTTPException(status_code=400, detail="Model not initialized; supply API key via /generate first.")
         processed_prompt = generate_code_review_template(title, body or "", diff_summary or "")

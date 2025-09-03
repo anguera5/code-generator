@@ -35,17 +35,20 @@ def root():
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_code(payload: GenerateRequest):
+    log.info("[QUERY][generate] lang=%s prompt.len=%d", payload.language, len(payload.prompt or ""))
     text = llm.generate_code(payload.prompt, payload.language, payload.api_key)
     return GenerateResponse(code=text, language=payload.language)
 
 
 @router.post("/tests", response_model=BasicResponse)
 async def generate_tests(payload: BasicRequest):
+    log.info("[QUERY][tests] code.len=%d", len(payload.code or ""))
     text = llm.generate_tests(payload.code)
     return BasicResponse(code=text)
 
 @router.post("/docs", response_model=BasicResponse)
 async def generate_docs(payload: BasicRequest):
+    log.info("[QUERY][docs] code.len=%d", len(payload.code or ""))
     text = llm.generate_docs(payload.code)
     return BasicResponse(code=text)
 
@@ -111,6 +114,7 @@ async def code_review_by_url(payload: CodeReviewByUrlRequest):
       - https://github.com/<owner>/<repo>/pull/<number>
       - https://github.com/<owner>/<repo>/pull/<number>/files
     """
+    log.info("[QUERY][code-review/by-url] url=%s", payload.url)
     import re
     m = re.match(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/.*)?$", payload.url.strip())
     if not m:
@@ -138,6 +142,7 @@ async def code_review_by_url(payload: CodeReviewByUrlRequest):
 
 @router.post("/fpf-rag/chat", response_model=FpfRagResponse)
 async def fpf_rag_chat(payload: FpfRagRequest):
+    log.info("[QUERY][fpf-rag] config=%s prompt.len=%d", payload.config_key, len(payload.prompt or ""))
     text = llm.generate_rag_response(payload.prompt, payload.api_key, payload.config_key)
     return FpfRagResponse(reply=text)
 
@@ -147,6 +152,7 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
 
     Returns: { sql, related_tables, columns, rows, retries, repaired, no_context, not_chembl, chembl_reason }
     """
+    log.info("[QUERY][chembl/run] prompt.len=%d", len(payload.prompt or ""))
     try:
         state: dict[str, Any] = llm.run_chembl_full(payload.prompt, limit=100, api_key=payload.api_key)
         # Attach prompt and persist session if memory_id provided

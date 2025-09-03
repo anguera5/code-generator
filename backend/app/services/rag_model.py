@@ -1,5 +1,7 @@
 import json
 import re
+import logging
+from datetime import datetime, timezone
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -194,6 +196,7 @@ class FpfRagPipeline:
         self.graph = build_langgraph(llm, vector_store)
 
     def answer(self, question: str, config_key: str):
+        log = logging.getLogger(__name__)
         last = None
         for step in self.graph.stream(
             {"messages": [{"role": "user", "content": question}]},
@@ -201,7 +204,12 @@ class FpfRagPipeline:
             config={"configurable": {"thread_id": config_key}},
         ):
             last = step
-            step["messages"][-1].pretty_print()
+            msg = step["messages"][-1]
+            content = getattr(msg, "content", "")
+            # Print and log the step output (traceback of LLM answers)
+            ts = datetime.now(timezone.utc).isoformat()
+            print(f"[{ts}] [LANGGRAPH][{config_key}] {content[:500]}")
+            log.info("[LANGGRAPH][%s] %s", config_key, content)
 
         if not last:
             return "I don't have access to this information."
@@ -212,6 +220,7 @@ def rag_answer_process(graph_or_pipeline, question, config_key):
     if hasattr(graph_or_pipeline, "answer"):
         return graph_or_pipeline.answer(question, config_key)
     graph = graph_or_pipeline
+    log = logging.getLogger(__name__)
     last = None
     for step in graph.stream(
         {"messages": [{"role": "user", "content": question}]},
@@ -219,7 +228,11 @@ def rag_answer_process(graph_or_pipeline, question, config_key):
         config={"configurable": {"thread_id": config_key}},
     ):
         last = step
-        step["messages"][-1].pretty_print()
+        msg = step["messages"][-1]
+        content = getattr(msg, "content", "")
+        ts = datetime.now(timezone.utc).isoformat()
+        print(f"[{ts}] [LANGGRAPH][{config_key}] {content[:500]}")
+        log.info("[LANGGRAPH][%s] %s", config_key, content)
 
     if not last:
         return "I don't have access to this information."
