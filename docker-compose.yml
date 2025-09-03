@@ -26,6 +26,11 @@ services:
         source: ${CHROMA_DB_HOST_DIR}
         target: /app/app/chroma_db
         read_only: false
+      # Persist application logs on host (writable) at a fixed path
+      - type: bind
+        source: /var/log/genai-portfolio
+        target: /var/log/genai-portfolio
+        read_only: false
     networks:
       - app-net
 
