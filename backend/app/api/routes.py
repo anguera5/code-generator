@@ -19,8 +19,10 @@ from app.core.config import get_settings
 from typing import Any
 from app.services.github_app import GitHubApp
 from app.services.code_review_controller import CodeReviewController
+from app.core.logger import get_logger
 
 router = APIRouter()
+log = get_logger(__name__)
 settings = get_settings()
 llm = LLMModel()
 github_app = GitHubApp()
@@ -28,6 +30,7 @@ code_review = CodeReviewController(llm, github_app)
 
 @router.get("/")
 def root():
+    log.info("Root endpoint hit")
     return {"message": "Welcome to the GenAI API. Use /generate, /tests, or /docs endpoints."}
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -78,10 +81,13 @@ async def code_review_webhook(
 
     def _run_review_task() -> None:
         review_text = code_review.generate_review_text(title, ctx.get("body", ""), diff_summary)
-        print("[CODE-REVIEW] Generated review for:", title)
+        log.info("[CODE-REVIEW] Generated review for: %s", title)
         code_review.try_post_review(ctx, review_text)
-        print(
-            f"[CODE-REVIEW] Post attempted on {ctx.get('owner')}/{ctx.get('repo')}#{ctx.get('pr_number')}"
+        log.info(
+            "[CODE-REVIEW] Post attempted on %s/%s#%s",
+            ctx.get("owner"),
+            ctx.get("repo"),
+            ctx.get("pr_number"),
         )
 
     # Only trigger for PR opened or reopened
@@ -160,7 +166,13 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
             "optimized_guidelines": state.get("optimized_guidelines", ""),
             "memory_id": payload.memory_id or None,
         }
-        print(response)
+        log.debug(
+            "[CHEMBL][run] response summary: cols=%d rows=%d retries=%d repaired=%s",
+            len(response.get("columns", [])),
+            len(response.get("rows", [])),
+            int(response.get("retries", 0)),
+            bool(response.get("repaired", False)),
+        )
         return response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

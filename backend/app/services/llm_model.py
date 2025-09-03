@@ -120,8 +120,8 @@ class LLMModel:
     
     def generate_rag_response(self, prompt, api_key, config_key):
         if not self.check_model_running(api_key) or not self.rag_chain:
-            print("Initializing chain")
-            print("Using model: ", self.llm.get_name())
+            logger.info("Initializing RAG chain")
+            logger.info("Using model: %s", self.llm.get_name())
             self.initialize_chain()
         return rag_answer_process(self.rag_chain, prompt, config_key)
 

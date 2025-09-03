@@ -4,6 +4,7 @@ import hashlib
 from typing import Optional, Dict, Any
 
 import httpx
+import logging
 
 API_ROOT = "https://api.github.com"
 API_VER = "2022-11-28"
@@ -20,7 +21,9 @@ class GitHubApp:
             or os.getenv("GH_TOKEN")
         )
         if not self.personal_token:
-            print("[GitHub] Warning: No personal token set (GITHUB_PERSONAL_TOKEN/GITHUB_TOKEN/GH_TOKEN)")
+            logging.getLogger(__name__).warning(
+                "[GitHub] Warning: No personal token set (GITHUB_PERSONAL_TOKEN/GITHUB_TOKEN/GH_TOKEN)"
+            )
 
     # --------- Webhook Security ---------
     def verify_signature(self, headers: Dict[str, str], body: bytes) -> bool:

@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.services.github_app import GitHubApp
 from app.services.llm_model import LLMModel
+from app.core.logger import get_logger
 
 
 class CodeReviewController:
@@ -15,6 +16,7 @@ class CodeReviewController:
     def __init__(self, llm: LLMModel, gh_app: GitHubApp) -> None:
         self.llm = llm
         self.gh_app = gh_app
+        self.log = get_logger(__name__)
 
     def parse_payload(self, raw_body: bytes, form_or_query_payload: str | None) -> Dict[str, Any]:
         # Prefer explicit 'payload' field if present (form/query)
@@ -85,10 +87,10 @@ class CodeReviewController:
         if owner and repo and pr_number:
             # Build minimal inline comments if possible
             comments = self._build_inline_comments(ctx, review_text)
-            print(f"[CODE-REVIEW] Inline comments prepared: {len(comments)}")
+            self.log.info("[CODE-REVIEW] Inline comments prepared: %d", len(comments))
             if comments:
                 preview = [{"path": c.get("path"), "position": c.get("position")} for c in comments[:3]]
-                print(f"[CODE-REVIEW] Inline preview (first 3): {preview}")
+                self.log.debug("[CODE-REVIEW] Inline preview (first 3): %s", preview)
             try:
                 self.gh_app.post_pull_request_review(
                     owner=str(owner),
@@ -97,11 +99,11 @@ class CodeReviewController:
                     body=review_text,
                     comments=comments if comments else None,
                 )
-                print("[CODE-REVIEW] Review posted (with inline comments).")
+                self.log.info("[CODE-REVIEW] Review posted (with inline comments).")
             except RuntimeError as e:
                 # If inline positions are invalid (422), retry with summary-only review
                 if "422" in str(e):
-                    print("[CODE-REVIEW] Inline comments rejected by GitHub (422). Retrying without inline comments.")
+                    self.log.warning("[CODE-REVIEW] Inline comments rejected by GitHub (422). Retrying without inline comments.")
                     self.gh_app.post_pull_request_review(
                         owner=str(owner),
                         repo=str(repo),
@@ -109,7 +111,7 @@ class CodeReviewController:
                         body=review_text,
                         comments=None,
                     )
-                    print("[CODE-REVIEW] Review posted (summary-only).")
+                    self.log.info("[CODE-REVIEW] Review posted (summary-only).")
                 else:
                     raise
 
@@ -131,7 +133,7 @@ class CodeReviewController:
         except (RuntimeError, ValueError, TypeError):
             # If the file list cannot be fetched, fall back to summary-only review
             return []
-        print(f"[CODE-REVIEW] PR files fetched: {len(files)}")
+        self.log.info("[CODE-REVIEW] PR files fetched: %d", len(files))
 
         # Ensure LLM is initialized (reuse OPENAI_API_KEY if needed)
         if getattr(self.llm, "llm", None) is None:
@@ -203,11 +205,11 @@ class CodeReviewController:
             try:
                 resp = self.llm.llm.invoke(prompt)
                 text = getattr(resp, "content", str(resp)) or "{}"
-                print(f"[CODE-REVIEW] LLM inline raw (trunc): {text[:200].replace('\n', ' ')}...")
+                self.log.debug("[CODE-REVIEW] LLM inline raw (trunc): %s...", text[:200].replace("\n", " "))
                 obj = self._safe_parse_json(text)
                 comments = obj.get("comments") if isinstance(obj, dict) else None
                 if not isinstance(comments, list):
-                    print("[CODE-REVIEW] LLM inline: no comments array found.")
+                    self.log.debug("[CODE-REVIEW] LLM inline: no comments array found.")
                     continue
                 per_file: list[dict] = []
                 for c in comments:
@@ -219,16 +221,16 @@ class CodeReviewController:
                         per_file.append({"path": path, "position": pos, "body": body.strip()})
                     if len(per_file) >= max_per_file:
                         break
-                print(f"[CODE-REVIEW] LLM inline accepted for {path}: {len(per_file)} (allowed: {len(allowed_positions)})")
+                self.log.info("[CODE-REVIEW] LLM inline accepted for %s: %d (allowed: %d)", path, len(per_file), len(allowed_positions))
                 inline.extend(per_file)
             except (ValueError, TypeError):
-                print("[CODE-REVIEW] LLM inline: parsing error; skipping file.")
+                self.log.warning("[CODE-REVIEW] LLM inline: parsing error; skipping file.")
                 continue
 
             if len(inline) >= max_total:
                 break
         if not inline and first_fallback is not None:
-            print("[CODE-REVIEW] Inline empty after LLM; adding single fallback inline comment.")
+            self.log.info("[CODE-REVIEW] Inline empty after LLM; adding single fallback inline comment.")
             inline.append(first_fallback)
         return inline
 
