@@ -335,7 +335,7 @@ const showNoContextDialog = ref(false)
 const examples = [
   { title: 'Top active compounds for a target', description: 'Top 10 compounds by activity against target CHEMBL203 (EGFR).', prompt: 'Top 10 compounds by potency (pChEMBL) against target CHEMBL203 (EGFR).' },
   { title: 'Assays with strong activity', description: 'Assays for DRD2 (CHEMBL240) with IC50 < 100 nM.', prompt: 'List assays for target CHEMBL240 (DRD2) with IC50 < 100 nM.' },
-  { title: 'Drug mechanisms of action', description: 'Mechanisms of action for drug imatinib (CHEMBL941).', prompt: 'Show mechanisms of action for CHEMBL941 (imatinib).' },
+  { title: 'Drug mechanisms of action', description: 'Mechanisms of action for drug ibuprofen (CHEMBL521).', prompt: 'Show mechanisms of action for ibuprofen (CHEMBL521).' },
   { title: 'Targets for a drug', description: 'Targets associated with CHEMBL941.', prompt: 'List all known targets for CHEMBL941 (imatinib).' },
   { title: 'Compound properties', description: 'Compounds with 300 <= MW <= 500 and bioavailability > 0.', prompt: 'Find compounds with molecular weight between 300 and 500 and bioavailability > 0.' },
   { title: 'Top journals', description: 'Top journals publishing ChEMBL assays in the last 5 years.', prompt: 'Top journals by count of assays recorded in the last 5 years.' },
