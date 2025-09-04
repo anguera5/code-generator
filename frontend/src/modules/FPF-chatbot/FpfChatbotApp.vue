@@ -5,7 +5,7 @@
         <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
           <div class="flex-1">
             <div class="eyebrow">Chatbot</div>
-            <h1 class="headline">Unofficial Food Packaging Forum RAG <span class="shimmer" /></h1>
+            <h1 class="headline">Unofficial Food Packaging Forum Chatbot <span class="shimmer" /></h1>
             <p class="op-80 mt-1">
               Ask questions about food packaging safety. Replies are grounded on FPF content using
               <strong>text-embedding-3-large</strong> and generated with <strong>gpt-4.1-mini</strong>.
@@ -141,7 +141,7 @@ async function send() {
   draft.value = ''
   loading.value = true
   try {
-  const res = await http.post('/api/fpf-rag/chat', { prompt: content, api_key: apiKeyStore.apiKey, config_key: chatbotConfigKey })
+  const res = await http.post('/api/fpf-chatbot/chat', { prompt: content, api_key: apiKeyStore.apiKey, config_key: chatbotConfigKey })
     push('assistant', res.data.reply)
   } catch (e:any) {
     const status = e?.response?.status

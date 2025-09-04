@@ -1,6 +1,6 @@
 # Backend - FastAPI
 
-FastAPI service powering code generation, website RAG, and the ChEMBL SQL RAG pipeline.
+FastAPI service powering code generation, website RAG, and the ChEMBL Agent pipeline.
 
 ## Run locally
 - Python 3.11+

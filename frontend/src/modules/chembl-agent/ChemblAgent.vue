@@ -5,7 +5,7 @@
               <div class="d-flex flex-column flex-md-row align-center justify-space-between ga-4">
                 <div class="flex-1">
                   <div class="eyebrow">RAG + SQL</div>
-                  <h1 class="headline">ChEMBL SQL RAG <span class="shimmer" /></h1>
+                  <h1 class="headline">ChEMBL Agent <span class="shimmer" /></h1>
                   <p class="op-80 mt-1">
                     Plan SQL queries against the local ChEMBL snapshot using natural language. We embed context with
                     <strong>text-embedding-3-large</strong> and generate SQL with <strong>gpt-4.1-mini</strong>.
@@ -520,7 +520,7 @@ watch(limit, (val) => {
   if (limitTimer) clearTimeout(limitTimer)
   limitTimer = setTimeout(async () => {
     try {
-      const res = await http.post('/api/chembl/reexecute', { memory_id: memoryId.value, limit: Number(val) || 100, api_key: apiKeyStore.apiKey })
+  const res = await http.post('/api/chembl-agent/reexecute', { memory_id: memoryId.value, limit: Number(val) || 100, api_key: apiKeyStore.apiKey })
       columns.value = res.data.columns || []
       rows.value = res.data.rows || []
     } catch (e) {
@@ -760,7 +760,7 @@ async function runAll() {
   editInstruction.value = ''
   loadingEdit.value = false
   try {
-  const res = await http.post('/api/chembl/run', { prompt: question.value, api_key: apiKeyStore.apiKey, memory_id: memoryId.value })
+  const res = await http.post('/api/chembl-agent/run', { prompt: question.value, api_key: apiKeyStore.apiKey, memory_id: memoryId.value })
   const isNoCtx = Boolean(res.data?.no_context || res.data?.not_chembl)
   chemblReason.value = String(res.data?.chembl_reason || '')
     noContext.value = isNoCtx
@@ -808,7 +808,7 @@ async function applyEdit() {
   if (!memoryId.value || !editInstruction.value.trim()) return
   loadingEdit.value = true
   try {
-    const res = await http.post('/api/chembl/edit', { memory_id: memoryId.value, instruction: editInstruction.value, api_key: apiKeyStore.apiKey, prev_sql: sql.value })
+  const res = await http.post('/api/chembl-agent/edit', { memory_id: memoryId.value, instruction: editInstruction.value, api_key: apiKeyStore.apiKey, prev_sql: sql.value })
     sql.value = res.data.sql || ''
     related.value = res.data.related_tables || []
     tableCards.value = parseRelatedTables(related.value)

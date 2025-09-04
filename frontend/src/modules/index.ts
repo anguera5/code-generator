@@ -16,13 +16,13 @@ export const modules: ModuleMeta[] = [
     description: 'LLM-assisted pull request review via repository webhook.'
   }
   ,{
-    path: '/fpf-rag',
-    title: 'FPF RAG',
+    path: '/fpf-chatbot',
+  title: 'Unofficial Food Packaging Forum Chatbot',
     description: 'Retrieval-augmented Q&A (prototype chatbot).'
   }
   ,{
-    path: '/chembl-sql-rag',
-    title: 'ChEMBL SQL RAG',
+    path: '/chembl-agent',
+  title: 'ChEMBL Agent',
     description: 'Build schema index and query ChEMBL via RAG-generated SQL.'
   }
 ]

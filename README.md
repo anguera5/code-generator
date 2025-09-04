@@ -4,14 +4,14 @@ A full-stack workspace combining a FastAPI backend and a Vue 3 (Vite + Vuetify +
 
 - Code Generator: Generate code, tests, and documentation using an LLM.
 - Code Review: LLM-assisted PR review via webhook or UI, to summarize changes and surface issues.
-- FPF RAG: A configurable retrieval‑augmented chat for a focused corpus ("FPF" domain), showcasing portable RAG patterns.
-- ChEMBL SQL RAG: Plan, synthesize, and execute SQLite queries against a local ChEMBL snapshot with retrieval‑augmented context, repair, and an edit workflow.
+- Unofficial Food Packaging Forum Chatbot: A configurable retrieval‑augmented chat for the Food Packaging Forum domain, showcasing portable RAG patterns.
+- ChEMBL Agent: Plan, synthesize, and execute SQLite queries against a local ChEMBL snapshot with retrieval‑augmented context, repair, and an edit workflow.
 
 The frontend provides a single shell UI with a navigation drawer; each module is a self-contained mini app.
 
 ## Repository layout
 
-- `backend/` — FastAPI service, LLM clients, RAG pipelines, and ChEMBL SQL orchestration.
+- `backend/` — FastAPI service, LLM clients, RAG pipelines, and ChEMBL Agent orchestration.
 - `frontend/` — Vue 3 app with Vuetify and Monaco, multi‑module router/shell.
 - `docker-compose.yml` — Local orchestration.
 - Backend logs under `/var/log/genai-portfolio` (daily‑rotated, UTC).
@@ -45,8 +45,8 @@ Multi‑module shell hosting:
 
 - Code Generator (`/code-generator`)
 - Code Review (`/code-review`)
-- FPF RAG (`/fpf-rag`)
-- ChEMBL SQL RAG (`/chembl-sql-rag`)
+- Unofficial Food Packaging Forum Chatbot (`/fpf-rag`)
+- ChEMBL Agent (`/chembl-sql-rag`)
 
 Key features:
 
@@ -69,17 +69,17 @@ Services and pipelines:
 
 - Code gen endpoints: generate code/tests/docs and code review.
 - Code Review webhook endpoint for PR review summaries.
-- FPF RAG chat endpoint for domain‑focused retrieval QA.
-- ChEMBL SQL RAG pipeline via LangGraph: classify → plan → retrieve → process → synthesize → execute → repair.
+- Unofficial Food Packaging Forum Chatbot endpoint for domain‑focused retrieval QA.
+- ChEMBL Agent pipeline via LangGraph: classify → plan → retrieve → process → synthesize → execute → repair.
 - Edit entrypoint for minimal SQL tweaks; `reexecute` endpoint for fast LIMIT‑only reruns.
 
 Important endpoints (subset):
 
-- `POST /api/chembl/run` — Plan + synthesize + execute; returns SQL, schema, columns, rows, session id.
-- `POST /api/chembl/edit` — Apply a minimal edit to last SQL in session.
-- `POST /api/chembl/reexecute` — Rerun last SQL with a new LIMIT using session memory.
+ `POST /api/chembl-agent/run` — Plan + synthesize + execute; returns SQL, schema, columns, rows, session id.
+ `POST /api/chembl-agent/edit` — Apply a minimal edit to last SQL in session.
+ `POST /api/chembl-agent/reexecute` — Rerun last SQL with a new LIMIT using session memory.
 - `POST /api/code-review/webhook` — Accepts PR webhook payload to produce an LLM review summary.
-- `POST /api/fpf-rag/chat` — Domain RAG chat: { prompt, api_key, config_key } → reply.
+ `POST /api/fpf-chatbot/chat` — Domain RAG chat: { prompt, api_key, config_key } → { reply }.
 
 ChEMBL data:
 
@@ -120,16 +120,16 @@ Timeouts:
   - `POST /api/code-review/by-url { url }` → `{ review }` (validate https://github.com/<owner>/<repo>/pull/<number>)
 - Why it matters: Maintainers can triage faster and provide more consistent feedback, especially in busy OSS repos. It helps newcomers understand project standards and good practices.
 
-### FPF RAG (`/fpf-rag`)
+### Unofficial Food Packaging Forum Chatbot (`/fpf-rag`)
 - What it does: A domain‑focused retrieval‑augmented chat using a Chroma vector store and OpenAI.
 - Key features:
   - Configurable via `config_key` to switch corpora or behaviors.
   - Clean separation of embedding, storage, and generation—easy to adapt.
 - API:
-  - `POST /api/fpf-rag/chat { prompt, api_key, config_key } → { reply }`
+  - `POST /api/fpf-chatbot/chat { prompt, api_key, config_key } → { reply }`
 - Why it matters: A portable RAG pattern the community can fork to power docs Q&A, knowledge bots, and internal assistants without heavy infra.
 
-### ChEMBL SQL RAG (`/chembl-sql-rag`)
+### ChEMBL Agent (`/chembl-sql-rag`)
 - What it does: Plans and synthesizes safe SQLite SQL over a local ChEMBL snapshot using RAG for schema context, then executes locally.
 - Key features:
   - LangGraph pipeline: classify → plan → retrieve → process (guidelines) → synthesize → execute → repair (loop‑capped).
@@ -137,9 +137,9 @@ Timeouts:
   - Safety guardrails: SELECT/WITH only, block DDL/DML and multi‑statements; enforce LIMIT.
   - UI: results‑first, per‑column filters, CSV export, “Technical details” modal (SQL preview with Monaco, schema, optimization notes).
 - API:
-  - `POST /api/chembl/run` → SQL, schema snippets, columns/rows, session id (`memory_id`).
-  - `POST /api/chembl/edit` → updated SQL/results for a session.
-  - `POST /api/chembl/reexecute` → rerun last SQL with a new LIMIT.
+  - `POST /api/chembl-agent/run` → SQL, schema snippets, columns/rows, session id (`memory_id`).
+  - `POST /api/chembl-agent/edit` → updated SQL/results for a session.
+  - `POST /api/chembl-agent/reexecute` → rerun last SQL with a new LIMIT.
 - Why it matters: Demonstrates responsible LLM‑to‑SQL over a real scientific dataset—useful for education, reproducible data exploration, and bridging LLMs with traditional databases in a safe, auditable way.
 
 ## Environment variables

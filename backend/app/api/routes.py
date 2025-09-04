@@ -140,13 +140,15 @@ async def code_review_by_url(payload: CodeReviewByUrlRequest):
     code_review.try_post_review(ctx, review_text)
     return CodeReviewResponse(review=f"queued: {owner}/{repo}#{pr_number}")
 
-@router.post("/fpf-rag/chat", response_model=FpfRagResponse)
+# Unofficial Food Packaging Forum Chatbot (new path)
+@router.post("/fpf-chatbot/chat", response_model=FpfRagResponse)
 async def fpf_rag_chat(payload: FpfRagRequest):
-    log.info("[QUERY][fpf-rag] config=%s prompt.len=%d", payload.config_key, len(payload.prompt or ""))
+    log.info("[QUERY][fpf-chatbot] config=%s prompt.len=%d", payload.config_key, len(payload.prompt or ""))
     text = llm.generate_rag_response(payload.prompt, payload.api_key, payload.config_key)
     return FpfRagResponse(reply=text)
 
-@router.post("/chembl/run", response_model=dict)
+# ChEMBL Agent (new paths)
+@router.post("/chembl-agent/run", response_model=dict)
 async def chembl_run(payload: ChemblSqlPlanRequest):
     """End-to-end run: plan → retrieve → synthesize → execute.
 
@@ -184,7 +186,7 @@ async def chembl_run(payload: ChemblSqlPlanRequest):
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.post("/chembl/edit", response_model=ChemblSqlEditResponse)
+@router.post("/chembl-agent/edit", response_model=ChemblSqlEditResponse)
 async def chembl_edit(payload: ChemblSqlEditRequest):
     """Apply a tweak to the last SQL for a session and return updated SQL/results."""
     # Ensure model running with api key
@@ -204,7 +206,7 @@ async def chembl_edit(payload: ChemblSqlEditRequest):
     )
 
 
-@router.post("/chembl/reexecute", response_model=ChemblSqlReexecuteResponse)
+@router.post("/chembl-agent/reexecute", response_model=ChemblSqlReexecuteResponse)
 async def chembl_reexecute(payload: ChemblSqlReexecuteRequest):
     """Re-execute the last SQL for a given session with a new LIMIT."""
     # Ensure model running with api key
