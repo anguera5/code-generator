@@ -55,10 +55,14 @@
       <v-btn class="nav-trigger mr-2" icon variant="text" @click="drawer = !drawer" :aria-label="drawer ? 'Close project drawer' : 'Open project drawer'">
         <v-img src="/src/assets/favicon.png" width="28" height="28" alt="Projects" class="elevate" />
       </v-btn>
-      <v-toolbar-title class="clickable-title" @click="$router.push('/')">
-        <span class="brand">GenAI<span class="accent">Portfolio</span></span>
+      <v-toolbar-title>
+        <router-link to="/" class="brand brand-link">GenAI<span class="accent">Portfolio</span></router-link>
       </v-toolbar-title>
       <v-spacer />
+      <!-- Mobile API key button -->
+      <v-btn class="api-key-button-mobile mr-2" icon variant="tonal" @click="apiKeyDialog = true" aria-label="Set API Key on mobile">
+        <v-icon icon="mdi-key-outline" />
+      </v-btn>
       <v-text-field
         v-model="apiKeyStore.apiKey"
         label="API Key"
@@ -70,6 +74,28 @@
         class="mr-4 api-key-field"
       />
     </v-app-bar>
+
+    <!-- API Key Dialog (mobile-friendly) -->
+    <v-dialog v-model="apiKeyDialog" max-width="420">
+      <v-card>
+        <v-card-title>Set API Key</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="tempApiKey"
+            label="API Key"
+            type="password"
+            variant="outlined"
+            hide-details
+            autofocus
+          />
+          <div class="text-caption mt-2" style="opacity:.7">Your key is stored locally in your browser.</div>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" @click="apiKeyDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" @click="saveApiKey">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <v-main>
       <router-view />
@@ -89,10 +115,20 @@ const links = {
   github: 'https://github.com/anguera5'
 }
 const apiKeyStore = useApiKeyStore()
+
+// Mobile API key dialog state
+const apiKeyDialog = ref(false)
+const tempApiKey = ref(apiKeyStore.apiKey)
+function saveApiKey() {
+  apiKeyStore.apiKey = tempApiKey.value
+  apiKeyDialog.value = false
+}
 </script>
 
 <style>
 html, body, #app { height: 100%; }
+/* Prevent horizontal scrollbar on mobile */
+html, body { overflow-x: hidden; }
 
 .app-bar { backdrop-filter: blur(6px) saturate(140%); background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0)); }
 .nav-trigger { color: #e2e8f0 !important; }
@@ -102,6 +138,8 @@ html, body, #app { height: 100%; }
 .clickable-title { cursor: pointer; user-select: none; }
 .brand { font-weight: 700; letter-spacing: 0.5px; font-size: 1.05rem; background: linear-gradient(90deg,#fff,#c7d2fe,#93c5fd,#22d3ee); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand .accent { color: #9a5fff; -webkit-text-fill-color: #9a5fff; background: none; }
+/* Make only the brand text clickable area */
+.brand-link { text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; }
 
 .app-drawer { background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)) !important; backdrop-filter: blur(14px) saturate(160%); border-right: 1px solid rgba(148,163,184,0.18) !important; }
 .drawer-header { color: #e2e8f0; font-weight: 600; }
@@ -131,5 +169,29 @@ body, .v-main, .v-container, .v-card, .v-alert, p, h2, h3, h4, h5, h6 { color: #
 .v-main { position: relative; z-index: 1; }
 
 .api-key-field input { font-size: 0.75rem; letter-spacing: 0.5px; }
+/* Desktop shows text field; mobile shows key icon */
+.api-key-button-mobile { display: none; }
+
+/* Mobile tweaks: prevent title from truncating and free space */
+@media (max-width: 600px) {
+  /* Hide API key input on small screens to avoid crowding */
+  .api-key-field { display: none !important; }
+  .api-key-button-mobile { display: inline-flex; }
+
+  /* Let the title breathe and avoid ellipsis */
+  .app-bar .v-toolbar-title {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Slightly reduce brand size on very small widths */
+  .brand { font-size: 0.95rem; }
+
+  /* Make the nav icon a touch smaller to gain a few pixels */
+  .nav-trigger .v-img { width: 24px; height: 24px; }
+}
 
 </style>
