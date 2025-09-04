@@ -1,6 +1,7 @@
 import json
 import re
 import logging
+import random
 from datetime import datetime, timezone
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
@@ -8,28 +9,57 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.graph import MessagesState, StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
+def _fallback_message() -> str:
+    """Return a short variation of the no-information message."""
+    variations = [
+        "I have no information on this topic.",
+        "Sorry, I don’t have information about that.",
+        "I don’t have enough information on this topic.",
+        "I don’t have details about this topic in my sources.",
+        "I’m missing information on this topic.",
+    ]
+    return random.choice(variations)
+
+
+def _ensure_query_text(q) -> str:
+    """Best-effort conversion of an input into a plain query string."""
+    if isinstance(q, str):
+        return q
+    if isinstance(q, dict):
+        for key in ("content", "query", "text", "prompt", "message"):
+            v = q.get(key)
+            if isinstance(v, str) and v.strip():
+                return v
+    if isinstance(q, list):
+        for item in reversed(q):
+            s = _ensure_query_text(item)
+            if isinstance(s, str) and s.strip():
+                return s
+    return str(q)
+
 def make_retrieve_tool(vector_store):
-    @tool(response_format="content_and_artifact")
-    def retrieve(query: str):
-        """Retrieve information related to a query. Leave the query as the user left it to increase the amount of matching characters.
-        Just correct syntax if needed"""
-        retrieved_docs = vector_store.similarity_search(query, k=4)
+    def retrieve(state: MessagesState):
+        """Retrieve information for the latest user message and append a retrieval message.
+        Emits a SystemMessage starting with [RETRIEVED] and attaches docs in additional_kwargs.artifact.
+        """
+        # Find the latest human message
+        question = ""
+        for m in reversed(state["messages"]):
+            if m.type == "human":
+                question = m.content
+                break
+        qtext = _ensure_query_text(question).strip()
+        if not qtext:
+            return {"messages": [SystemMessage(content="[RETRIEVED]")]}  # no docs
+
+        retrieved_docs = vector_store.similarity_search(qtext, k=4)
         serialized = "\n\n".join(
             (f"Source: {doc.metadata}\nContent: {doc.page_content}")
             for doc in retrieved_docs
         )
-        return serialized, retrieved_docs
+        msg = SystemMessage(content=f"[RETRIEVED]\n{serialized}", additional_kwargs={"artifact": retrieved_docs})
+        return {"messages": [msg]}
     return retrieve
-
-# Step 1: Generate an AIMessage that may include a tool-call to be sent.
-def make_query_or_respond_node(llm, retrieve):
-    def query_or_respond(state: MessagesState):
-        """Generate tool call for retrieval or respond."""
-        llm_with_tools = llm.bind_tools([retrieve])
-        response = llm_with_tools.invoke(state["messages"])
-        # MessagesState appends messages to state instead of overwriting
-        return {"messages": [response]}
-    return query_or_respond
 
 
 # Step 2: Execute the retrieval.
@@ -39,11 +69,15 @@ def make_query_or_respond_node(llm, retrieve):
 def make_generate_node(llm):
     def generate(state: MessagesState):
         """Generate answer."""
-        # Get most recent contiguous block of ToolMessages (skip trailing non-tool markers)
+        # Get most recent contiguous block of retrieval messages (tool or [RETRIEVED] markers)
         recent_tool_messages = []
         started = False
         for message in reversed(state["messages"]):
-            if message.type == "tool":
+            is_retrieval = message.type == "tool" or (
+                isinstance(getattr(message, "content", None), str)
+                and getattr(message, "content").startswith("[RETRIEVED]")
+            )
+            if is_retrieval:
                 recent_tool_messages.append(message)
                 started = True
             elif started:
@@ -55,12 +89,15 @@ def make_generate_node(llm):
         # If no retrieval tool messages, return explicit fallback (prevent hallucination)
         if not tool_messages:
             fallback = AIMessage(
-                content="I don't have access to this information.",
+                content=_fallback_message(),
             )
             return {"messages": [fallback]}
 
         # Format into prompt
-        docs_content = "\n\n".join(doc.content for doc in tool_messages)
+        # Strip the [RETRIEVED] marker if present
+        def _strip_marker(txt: str) -> str:
+            return txt.split("\n", 1)[1] if txt.startswith("[RETRIEVED]") else txt
+        docs_content = "\n\n".join(_strip_marker(getattr(doc, "content", "")) for doc in tool_messages)
         system_message_content = (
             "You are an assistant for question-answering tasks. "
             "Use the following pieces of retrieved context to answer "
@@ -92,10 +129,14 @@ def make_generate_node(llm):
 def make_assess_node(llm):
     def assess(state: MessagesState):
         """Decide if retrieved documents are sufficient to answer the question."""
-        # Collect tool messages (retrieved docs)
+        # Collect retrieval messages (tool or [RETRIEVED])
         recent_tool_messages = []
         for message in reversed(state["messages"]):
-            if message.type == "tool":
+            is_retrieval = message.type == "tool" or (
+                isinstance(getattr(message, "content", None), str)
+                and getattr(message, "content").startswith("[RETRIEVED]")
+            )
+            if is_retrieval:
                 recent_tool_messages.append(message)
             else:
                 break
@@ -103,6 +144,25 @@ def make_assess_node(llm):
 
         if not tool_messages:
             # No docs means we cannot answer safely
+            marker = SystemMessage(content="[ASSESS] can_answer=false reason=no_docs")
+            return {"messages": [marker]}
+
+        # Count retrieved docs using artifact when available; fallback to content heuristic
+        docs_count = 0
+        for msg in tool_messages:
+            art = getattr(msg, "artifact", None)
+            if art is None:
+                add_kwargs = getattr(msg, "additional_kwargs", None)
+                if isinstance(add_kwargs, dict):
+                    art = add_kwargs.get("artifact")
+            if isinstance(art, list):
+                docs_count += len(art)
+            # Fallback heuristic: count Source: markers in content
+            content_text = getattr(msg, "content", "") or ""
+            if content_text:
+                docs_count += content_text.count("Source:")
+
+        if docs_count <= 0:
             marker = SystemMessage(content="[ASSESS] can_answer=false reason=no_docs")
             return {"messages": [marker]}
 
@@ -156,34 +216,24 @@ def _assess_condition(state: MessagesState):
     return END
 
 def make_no_answer_node():
-    def no_answer(state: MessagesState):
+    def no_answer(_state: MessagesState):
         # Friendly fallback when we cannot safely answer
-        return {"messages": [AIMessage(content="I don't have access to this information.")]}
+        return {"messages": [AIMessage(content=_fallback_message())]}
     return no_answer
 
 def build_langgraph(llm, vector_store):
 
     memory = MemorySaver()
     graph_builder = StateGraph(MessagesState)
-    retrieve_method = make_retrieve_tool(vector_store)
-    tools = ToolNode([retrieve_method])
 
-    graph_builder.add_node(make_query_or_respond_node(llm, retrieve_method))
-    graph_builder.add_node(tools)
+    graph_builder.add_node(make_retrieve_tool(vector_store))
     graph_builder.add_node(make_assess_node(llm))
     graph_builder.add_node(make_generate_node(llm))
     graph_builder.add_node(make_no_answer_node())
 
-    graph_builder.set_entry_point("query_or_respond")
-    graph_builder.add_conditional_edges(
-        "query_or_respond",
-        tools_condition,
-        {END: END, "tools": "tools"},
-    )
-    # After retrieval, assess relevance and gate generation
-    graph_builder.add_edge("tools", "assess")
+    graph_builder.set_entry_point("retrieve")
+    graph_builder.add_edge("retrieve", "assess")
     graph_builder.add_conditional_edges("assess", _assess_condition, {"generate": "generate", END: "no_answer"})
-    graph_builder.add_edge("generate", END)
 
     return graph_builder.compile(checkpointer=memory)
 
@@ -212,7 +262,7 @@ class FpfRagPipeline:
             log.info("[LANGGRAPH][%s] %s", config_key, content)
 
         if not last:
-            return "I don't have access to this information."
+            return _fallback_message()
         return last["messages"][-1].content
 
 def rag_answer_process(graph_or_pipeline, question, config_key):
@@ -235,5 +285,5 @@ def rag_answer_process(graph_or_pipeline, question, config_key):
         log.info("[LANGGRAPH][%s] %s", config_key, content)
 
     if not last:
-        return "I don't have access to this information."
+        return _fallback_message()
     return last["messages"][-1].content
