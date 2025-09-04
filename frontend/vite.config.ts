@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0', 
-    allowedHosts: ['genai-code-generator.duckdns.org'],
+    allowedHosts: ['genai-code-generator.duckdns.org', 'genai-portfolio.duckdns.org'],
     proxy: {
       '/api': {
   // Allow overriding the backend origin in local dev without changing docker-compose.
