@@ -45,8 +45,8 @@ Multi‑module shell hosting:
 
 - Code Generator (`/code-generator`)
 - Code Review (`/code-review`)
-- Unofficial Food Packaging Forum Chatbot (`/fpf-rag`)
-- ChEMBL Agent (`/chembl-sql-rag`)
+- Unofficial Food Packaging Forum Chatbot (`/fpf-chatbot`)
+- ChEMBL Agent (`/chembl-agent`)
 
 Key features:
 
@@ -120,7 +120,7 @@ Timeouts:
   - `POST /api/code-review/by-url { url }` → `{ review }` (validate https://github.com/<owner>/<repo>/pull/<number>)
 - Why it matters: Maintainers can triage faster and provide more consistent feedback, especially in busy OSS repos. It helps newcomers understand project standards and good practices.
 
-### Unofficial Food Packaging Forum Chatbot (`/fpf-rag`)
+### Unofficial Food Packaging Forum Chatbot (`/fpf-chatbot`)
 - What it does: A domain‑focused retrieval‑augmented chat using a Chroma vector store and OpenAI.
 - Key features:
   - Configurable via `config_key` to switch corpora or behaviors.
@@ -129,7 +129,7 @@ Timeouts:
   - `POST /api/fpf-chatbot/chat { prompt, api_key, config_key } → { reply }`
 - Why it matters: A portable RAG pattern the community can fork to power docs Q&A, knowledge bots, and internal assistants without heavy infra.
 
-### ChEMBL Agent (`/chembl-sql-rag`)
+### ChEMBL Agent (`/chembl-agent`)
 - What it does: Plans and synthesizes safe SQLite SQL over a local ChEMBL snapshot using RAG for schema context, then executes locally.
 - Key features:
   - LangGraph pipeline: classify → plan → retrieve → process (guidelines) → synthesize → execute → repair (loop‑capped).

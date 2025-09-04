@@ -5,8 +5,8 @@ This frontend now supports hosting multiple self-contained mini-app modules ("pr
 Current modules:
 1. Code Generator (`/code-generator`): Generate code, tests, and docs via LLM backend.
 2. Code Review (`/code-review`): LLM-assisted PR reviews via GitHub webhook or PR URL try-out.
-3. Unofficial Food Packaging Forum Chatbot (`/fpf-rag`): Retrieval‑augmented chat grounded on FPF content.
-4. ChEMBL Agent (`/chembl-sql-rag`): Plan → synthesize → execute SQLite queries against a local ChEMBL snapshot, with sessioned edits and LIMIT re-execution.
+3. Unofficial Food Packaging Forum Chatbot (`/fpf-chatbot`): Retrieval‑augmented chat grounded on FPF content.
+4. ChEMBL Agent (`/chembl-agent`): Plan → synthesize → execute SQLite queries against a local ChEMBL snapshot, with sessioned edits and LIMIT re-execution.
 
 ## Dev
 1. `npm ci`

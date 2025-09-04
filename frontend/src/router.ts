@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import HomePage from './pages/HomePage.vue'
+import NotFound from './pages/NotFound.vue'
 
 const CodeGeneratorApp = () => import('./modules/code-generator/CodeGeneratorApp.vue')
 const CodeReviewApp = () => import('./modules/code-review/CodeReviewApp.vue')
@@ -13,7 +14,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/code-review', name: 'code-review', component: CodeReviewApp },
   { path: '/about', name: 'about', component: AboutPage },
   { path: '/fpf-chatbot', name: 'fpf-chatbot', component: FpfChatbotApp },
-  { path: '/chembl-agent', name: 'chembl-agent', component: ChemblAgentApp }
+  { path: '/chembl-agent', name: 'chembl-agent', component: ChemblAgentApp },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound }
 ]
 
 export const router = createRouter({
